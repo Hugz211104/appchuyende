@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "818493087603",
+    "project_id": "appchat-253d0",
+    "storage_bucket": "appchat-253d0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:818493087603:android:8f9b922658f32bcc746f06",
+        "android_client_info": {
+          "package_name": "com.example.chuyende"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQsrBshlizEfEmC186Er_4aqTmZ2OxPjQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

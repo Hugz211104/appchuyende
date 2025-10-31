@@ -1,0 +1,30 @@
+name: chuyende
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase Packages - THIS IS THE FIX
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.17.6
+  cloud_firestore: ^4.15.5
+
+  # UI Packages
+  google_fonts: ^6.1.0
+  cupertino_icons: ^1.0.8
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

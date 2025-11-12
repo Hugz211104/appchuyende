@@ -10,15 +10,25 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Firebase Packages - THIS IS THE FIX
+  # Firebase Packages
   firebase_core: ^2.24.2
   firebase_auth: ^4.17.6
   cloud_firestore: ^4.15.5
+  firebase_storage: ^11.7.0
+  firebase_app_check: ^0.2.1+17
+
+  # Image Picker
+  image_picker: ^1.0.7
 
   # UI Packages
   google_fonts: ^6.1.0
   cupertino_icons: ^1.0.8
+  timeago: ^3.6.1
 
+  # News Feature Packages
+  http: ^1.2.1
+  webview_flutter: ^4.7.0
+  cached_network_image: ^3.3.1
 
 dev_dependencies:
   flutter_test:

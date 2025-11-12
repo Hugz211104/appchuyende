@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'dart:ui';
-import 'package:chuyende/services/auth_service.dart';
+import 'package:chuyende/features/auth/services/auth_service.dart';
 import 'package:chuyende/widgets/custom_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';

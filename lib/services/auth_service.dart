@@ -1,34 +1,44 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Lấy stream trạng thái đăng nhập của người dùng
   Stream<User?> get user => _auth.authStateChanges();
 
-  // Đăng nhập bằng Email và Password
   Future<UserCredential?> signInWithEmailAndPassword(String email, String password) async {
     try {
       return await _auth.signInWithEmailAndPassword(email: email, password: password);
     } on FirebaseAuthException catch (e) {
-      // Bạn có thể xử lý các lỗi cụ thể ở đây, ví dụ: sai mật khẩu, người dùng không tồn tại
       print(e.message);
       return null;
     }
   }
 
-  // Đăng ký bằng Email và Password
   Future<UserCredential?> registerWithEmailAndPassword(String email, String password) async {
     try {
-      return await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      
+      // After creating the user, create a new document for them in the 'users' collection
+      if (userCredential.user != null) {
+        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+          'uid': userCredential.user!.uid,
+          'email': email,
+          'displayName': email.split('@')[0], // Default display name
+          'photoURL': null, // Default photo
+          'coverPhotoUrl': 'https://source.unsplash.com/random/800x600?nature', // Default cover
+          'followers': [],
+          'following': [],
+        });
+      }
+      return userCredential;
     } on FirebaseAuthException catch (e) {
-      // Bạn có thể xử lý các lỗi cụ thể ở đây, ví dụ: email đã tồn tại
       print(e.message);
       return null;
     }
   }
 
-  // Đăng xuất
   Future<void> signOut() async {
     await _auth.signOut();
   }

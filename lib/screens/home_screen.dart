@@ -1,7 +1,9 @@
+import 'package:chuyende/screens/discover_screen.dart';
 import 'package:chuyende/screens/profile_screen.dart';
 import 'package:chuyende/screens/home_feed.dart';
+import 'package:chuyende/screens/notification_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/cupertino.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,11 +15,11 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  static final List<Widget> _widgetOptions = <Widget>[
+  // Removed MessagesScreen from the list
+  final List<Widget> _widgetOptions = <Widget>[
     const HomeFeed(),
-    const Center(child: Text('Explore Page')),
-    const Center(child: Text('Post Page')),
-    const Center(child: Text('Notifications Page')),
+    const DiscoverScreen(),
+    const NotificationScreen(),
     const ProfileScreen(),
   ];
 
@@ -30,21 +32,17 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('GenNews', style: GoogleFonts.poppins(color: const Color(0xFF1D1D1F), fontWeight: FontWeight.bold, fontSize: 28)),
-        actions: [
-          IconButton(icon: const Icon(Icons.add_circle_outline, size: 28), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.chat_bubble_outline, size: 28), onPressed: () {}),
-        ],
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _widgetOptions,
       ),
-      body: _widgetOptions.elementAt(_selectedIndex),
       bottomNavigationBar: BottomNavigationBar(
+        // Removed the message item
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Explore'),
-          BottomNavigationBarItem(icon: Icon(Icons.ondemand_video), label: 'Reels'),
-          BottomNavigationBarItem(icon: Icon(Icons.favorite_border), label: 'Notifications'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(CupertinoIcons.house_fill), label: 'Trang chủ'),
+          BottomNavigationBarItem(icon: Icon(CupertinoIcons.compass_fill), label: 'Khám phá'),
+          BottomNavigationBarItem(icon: Icon(CupertinoIcons.bell_fill), label: 'Thông báo'),
+          BottomNavigationBarItem(icon: Icon(CupertinoIcons.person_fill), label: 'Hồ sơ'),
         ],
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,

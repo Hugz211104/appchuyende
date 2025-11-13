@@ -4,9 +4,12 @@ import 'package:chuyende/services/auth_service.dart';
 import 'package:chuyende/widgets/article_post_card.dart';
 import 'package:chuyende/widgets/custom_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String? userId;
@@ -17,7 +20,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProviderStateMixin {
-  final AuthService authService = AuthService();
   User? get _currentUser => FirebaseAuth.instance.currentUser;
   String get _targetUserId => widget.userId ?? _currentUser!.uid;
   bool get _isCurrentUserProfile => widget.userId == null || widget.userId == _currentUser!.uid;
@@ -53,7 +55,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         following = currentUserFollows.contains(_targetUserId);
       }
 
-      // Friend logic
       final List<dynamic> userFollowing = _userData?['following'] ?? [];
       final List<dynamic> userFollowers = _userData?['followers'] ?? [];
       final friendIds = userFollowing.where((id) => userFollowers.contains(id)).toList();
@@ -142,12 +143,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     }
   }
 
-  Future<void> _logout() async {
+  Future<void> _logout(BuildContext context) async {
+    final authService = Provider.of<AuthService>(context, listen: false);
     try {
-      await FirebaseAuth.instance.signOut();
-      if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/login', (Route<dynamic> route) => false);
-      }
+      await authService.signOut();
+      // AuthWrapper will handle navigation
     } catch (e) {
       if (mounted) {
         CustomDialog.show(
@@ -163,7 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   void _showLogoutConfirmationDialog() {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Đăng xuất'),
           content: const Text('Bạn muốn đăng xuất không?'),
@@ -171,14 +171,14 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             TextButton(
               child: const Text('Hủy'),
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
               },
             ),
             TextButton(
               child: const Text('Đăng xuất'),
               onPressed: () {
-                Navigator.of(context).pop();
-                _logout();
+                Navigator.of(dialogContext).pop();
+                _logout(context); // Pass the main context
               },
             ),
           ],
@@ -245,6 +245,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     int postCount = _userPosts.length;
     int followers = (_userData?['followers'] as List?)?.length ?? 0;
     int following = (_userData?['following'] as List?)?.length ?? 0;
+    final String? gender = _userData?['gender'];
+    final DateTime? dateOfBirth = _userData?['dateOfBirth'] is Timestamp ? (_userData!['dateOfBirth'] as Timestamp).toDate() : null;
+
 
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -260,6 +263,29 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           Text(displayName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text(handle, style: const TextStyle(fontSize: 16, color: Colors.grey)),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (gender != null)
+                Row(
+                  children: [
+                    Icon(gender == 'Nam' ? Icons.male : gender == 'Nữ' ? Icons.female : Icons.transgender, size: 16, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(gender, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                    const SizedBox(width: 12),
+                  ],
+                ),
+              if (dateOfBirth != null)
+                Row(
+                  children: [
+                    const Icon(CupertinoIcons.gift_fill, size: 16, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(DateFormat('dd/MM/yyyy').format(dateOfBirth), style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                  ],
+                ),
+            ],
+          ),
           const SizedBox(height: 24),
           Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
             _buildStatColumn(followers.toString(), "Người theo dõi"),

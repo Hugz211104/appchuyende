@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -21,6 +22,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _displayNameController;
   late TextEditingController _bioController;
   late TextEditingController _handleController;
+  
+  String? _gender;
+  DateTime? _dateOfBirth;
   bool _isLoading = true;
   bool _isSaving = false;
   Map<String, dynamic>? _userData;
@@ -51,6 +55,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _displayNameController.text = _userData?['displayName'] ?? '';
           _bioController.text = _userData?['bio'] ?? '';
           _handleController.text = _userData?['handle'] ?? '';
+          _gender = _userData?['gender'];
+          if (_userData?['dateOfBirth'] is Timestamp) {
+            _dateOfBirth = (_userData!['dateOfBirth'] as Timestamp).toDate();
+          }
           _isLoading = false;
         });
       }
@@ -93,6 +101,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
     );
   }
+  
+  Future<void> _selectDate() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _dateOfBirth ?? DateTime.now(),
+      firstDate: DateTime(1920),
+      lastDate: DateTime.now(),
+    );
+    if (pickedDate != null && pickedDate != _dateOfBirth) {
+      setState(() {
+        _dateOfBirth = pickedDate;
+      });
+    }
+  }
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate() || _isSaving) return;
@@ -121,6 +143,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'handle': newHandle,
         'photoURL': newPhotoURL,
         'coverPhotoUrl': newCoverPhotoURL,
+        'gender': _gender,
+        'dateOfBirth': _dateOfBirth != null ? Timestamp.fromDate(_dateOfBirth!) : null,
       });
 
       if (newDisplayName != user.displayName || newPhotoURL != user.photoURL) {
@@ -184,6 +208,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       controller: _displayNameController,
                       decoration: const InputDecoration(labelText: 'Tên hiển thị', border: OutlineInputBorder()),
                       validator: (value) => (value == null || value.trim().isEmpty) ? 'Vui lòng nhập tên hiển thị' : null,
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -194,12 +219,43 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         if (value.contains(' ')) return 'Tên người dùng không được chứa khoảng trắng';
                         return null;
                       },
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _bioController,
                       decoration: const InputDecoration(labelText: 'Tiểu sử', border: OutlineInputBorder()),
                       maxLines: 3,
+                    ),
+                    const SizedBox(height: 16),
+                     ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(_dateOfBirth == null ? 'Chọn ngày sinh' : 'Ngày sinh: ${DateFormat('dd/MM/yyyy').format(_dateOfBirth!)}'),
+                        trailing: const Icon(Icons.calendar_today),
+                        onTap: _selectDate,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4), side: BorderSide(color: Colors.grey.shade400)),
+                        tileColor: Colors.white,
+                      ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: _gender,
+                      decoration: const InputDecoration(
+                        labelText: 'Giới tính',
+                        border: OutlineInputBorder(),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      items: ['Nam', 'Nữ', 'Khác']
+                          .map((label) => DropdownMenuItem(
+                                child: Text(label),
+                                value: label,
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _gender = value;
+                        });
+                      },
                     ),
                   ],
                 ),

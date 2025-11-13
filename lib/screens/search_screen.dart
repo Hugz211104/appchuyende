@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:chuyende/screens/profile_screen.dart';
+import 'package:flutter/material.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -10,40 +10,17 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  final _searchController = TextEditingController();
-  Stream<QuerySnapshot>? _usersStream;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(() {
-      final query = _searchController.text.trim();
-      if (query.isNotEmpty) {
-        setState(() {
-          _usersStream = FirebaseFirestore.instance
-              .collection('users')
-              .where('displayName', isGreaterThanOrEqualTo: query)
-              .where('displayName', isLessThanOrEqualTo: '$query\uf8ff')
-              .snapshots();
-        });
-      } else {
-        setState(() {
-          _usersStream = null;
-        });
-      }
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
     });
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _navigateToProfile(String userId) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => ProfileScreen(userId: userId),
-    ));
   }
 
   @override
@@ -53,44 +30,41 @@ class _SearchScreenState extends State<SearchScreen> {
         title: TextField(
           controller: _searchController,
           autofocus: true,
-          decoration: InputDecoration(
-            hintText: 'Tìm kiếm người dùng...',
-            prefixIcon: const Icon(Icons.search),
+          decoration: const InputDecoration(
+            hintText: 'Search for users with @handle...',
             border: InputBorder.none,
-            fillColor: Colors.grey[200],
-            filled: true,
           ),
         ),
       ),
-      body: _usersStream == null
-          ? const Center(child: Text('Nhập tên để tìm kiếm'))
+      body: _searchQuery.isEmpty
+          ? const Center(
+              child: Text('Search suggestions will be here.'),
+            )
           : StreamBuilder<QuerySnapshot>(
-              stream: _usersStream,
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .where('handle', isGreaterThanOrEqualTo: _searchQuery)
+                  .where('handle', isLessThan: _searchQuery + 'z')
+                  .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('Không tìm thấy người dùng nào.'));
+                  return const Center(child: Text('No users found.'));
                 }
 
-                return ListView.builder(
-                  itemCount: snapshot.data!.docs.length,
-                  itemBuilder: (context, index) {
-                    final userDoc = snapshot.data!.docs[index];
-                    final userData = userDoc.data() as Map<String, dynamic>;
-                    final photoURL = userData['photoURL'] as String?;
-
+                return ListView( 
+                  children: snapshot.data!.docs.map((doc) {
+                    var userData = doc.data() as Map<String, dynamic>;
                     return ListTile(
                       leading: CircleAvatar(
-                        backgroundImage: (photoURL != null && photoURL.isNotEmpty) ? NetworkImage(photoURL) : null,
-                        child: (photoURL == null || photoURL.isEmpty) ? const Icon(Icons.person) : null,
+                        backgroundImage: NetworkImage(userData['photoURL'] ?? ''),
                       ),
-                      title: Text(userData['displayName'] ?? 'Không có tên'),
-                      subtitle: Text('@${userData['handle'] ?? 'không_có_handle'}'),
-                      onTap: () => _navigateToProfile(userDoc.id),
+                      title: Text(userData['displayName'] ?? ''),
+                      subtitle: Text('@${userData['handle'] ?? ''}'),
                     );
-                  },
+                  }).toList(),
                 );
               },
             ),

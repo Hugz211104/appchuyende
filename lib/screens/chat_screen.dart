@@ -52,7 +52,7 @@ class _ChatScreenState extends State<ChatScreen> {
       'senderId': _currentUser!.uid,
       'timestamp': now,
     };
-    
+
     // We need info for both users to store in the chat room document
     final currentUserData = await FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).get();
     final recipientUserData = await FirebaseFirestore.instance.collection('users').doc(widget.recipientId).get();
@@ -122,31 +122,31 @@ class _ChatScreenState extends State<ChatScreen> {
             child: _currentUser == null
                 ? const Center(child: Text("Vui lòng đăng nhập."))
                 : StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('chat_rooms')
-                        .doc(_chatRoomId)
-                        .collection('messages')
-                        .orderBy('timestamp', descending: true)
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return const Center(child: Text('Gửi tin nhắn đầu tiên!'));
-                      }
-                      final messages = snapshot.data!.docs;
-                      return ListView.builder(
-                        reverse: true,
-                        itemCount: messages.length,
-                        itemBuilder: (context, index) {
-                          final message = messages[index].data() as Map<String, dynamic>;
-                          final isMe = message['senderId'] == _currentUser!.uid;
-                          return _buildMessageBubble(message, isMe);
-                        },
-                      );
-                    },
-                  ),
+              stream: FirebaseFirestore.instance
+                  .collection('chat_rooms')
+                  .doc(_chatRoomId)
+                  .collection('messages')
+                  .orderBy('timestamp', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(child: Text('Gửi tin nhắn đầu tiên!'));
+                }
+                final messages = snapshot.data!.docs;
+                return ListView.builder(
+                  reverse: true,
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message = messages[index].data() as Map<String, dynamic>;
+                    final isMe = message['senderId'] == _currentUser!.uid;
+                    return _buildMessageBubble(message, isMe);
+                  },
+                );
+              },
+            ),
           ),
           _buildMessageComposer(),
         ],

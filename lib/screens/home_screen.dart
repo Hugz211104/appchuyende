@@ -2,6 +2,7 @@ import 'package:chuyende/screens/discover_screen.dart';
 import 'package:chuyende/screens/profile_screen.dart';
 import 'package:chuyende/screens/home_feed.dart';
 import 'package:chuyende/screens/notification_screen.dart';
+import 'package:chuyende/screens/messages_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -15,10 +16,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  // Removed MessagesScreen from the list
   final List<Widget> _widgetOptions = <Widget>[
     const HomeFeed(),
     const DiscoverScreen(),
+    const MessagesScreen(),
     const NotificationScreen(),
     const ProfileScreen(),
   ];
@@ -37,10 +38,10 @@ class _HomeScreenState extends State<HomeScreen> {
         children: _widgetOptions,
       ),
       bottomNavigationBar: BottomNavigationBar(
-        // Removed the message item
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(CupertinoIcons.house_fill), label: 'Trang chủ'),
           BottomNavigationBarItem(icon: Icon(CupertinoIcons.compass_fill), label: 'Khám phá'),
+          BottomNavigationBarItem(icon: Icon(CupertinoIcons.chat_bubble_fill), label: 'Tin nhắn'),
           BottomNavigationBarItem(icon: Icon(CupertinoIcons.bell_fill), label: 'Thông báo'),
           BottomNavigationBarItem(icon: Icon(CupertinoIcons.person_fill), label: 'Hồ sơ'),
         ],

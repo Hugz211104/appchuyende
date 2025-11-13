@@ -21,12 +21,18 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
     final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).get();
     final userData = userDoc.data() ?? {};
 
+    // 1. Add the comment
     await FirebaseFirestore.instance.collection('articles').doc(widget.articleId).collection('comments').add({
       'text': _commentController.text.trim(),
       'userId': currentUser!.uid,
       'displayName': userData['displayName'] ?? 'Ẩn danh',
       'photoURL': userData['photoURL'],
       'timestamp': Timestamp.now(),
+    });
+
+    // 2. Atomically increment the comment count
+    await FirebaseFirestore.instance.collection('articles').doc(widget.articleId).update({
+        'commentCount': FieldValue.increment(1),
     });
     
     final articleDoc = await FirebaseFirestore.instance.collection('articles').doc(widget.articleId).get();

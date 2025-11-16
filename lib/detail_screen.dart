@@ -60,18 +60,34 @@ class _DetailScreenState extends State<DetailScreen> {
       return;
     }
 
-    final commentsRef = FirebaseFirestore.instance
-        .collection('articles')
-        .doc(widget.articleId)
-        .collection('comments');
+    final articleRef = FirebaseFirestore.instance.collection('articles').doc(widget.articleId);
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).get();
+
+    if (!userDoc.exists) {
+       ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User data not found.')),
+      );
+      return;
+    }
+
+    final commentRef = articleRef.collection('comments').doc();
 
     try {
-      await commentsRef.add({
+      final userData = userDoc.data()!;
+      final batch = FirebaseFirestore.instance.batch();
+
+      batch.set(commentRef, {
         'text': commentText,
         'authorId': currentUser.uid,
-        'authorEmail': currentUser.email,
+        'authorDisplayName': userData['displayName'] ?? 'Anonymous',
+        'authorPhotoURL': userData['photoURL'] ?? '',
         'timestamp': FieldValue.serverTimestamp(),
       });
+
+      batch.update(articleRef, {'commentCount': FieldValue.increment(1)});
+
+      await batch.commit();
+
       _commentController.clear();
       FocusScope.of(context).unfocus();
     } catch (e) {
@@ -226,11 +242,15 @@ class _DetailScreenState extends State<DetailScreen> {
                       (context, index) {
                         final comment = commentSnapshot.data!.docs[index].data() as Map<String, dynamic>;
                         final String text = comment['text'] ?? '';
-                        final String authorEmail = comment['authorEmail'] ?? 'Anonymous';
+                        final String authorDisplayName = comment['authorDisplayName'] ?? 'Anonymous';
+                        final String authorPhotoURL = comment['authorPhotoURL'] ?? '';
 
                         return ListTile(
-                          leading: const CircleAvatar(child: Icon(Icons.person)),
-                          title: Text(authorEmail, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          leading: CircleAvatar(
+                            backgroundImage: authorPhotoURL.isNotEmpty ? NetworkImage(authorPhotoURL) : null,
+                            child: authorPhotoURL.isEmpty ? const Icon(Icons.person) : null,
+                          ),
+                          title: Text(authorDisplayName, style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text(text),
                         );
                       },

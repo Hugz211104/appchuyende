@@ -13,10 +13,18 @@ service cloud.firestore {
     match /articles/{articleId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
-      allow update: if request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']);
+      // Allow updating 'likes' and 'commentCount' for authenticated users.
+      allow update: if request.auth != null && 
+                       request.resource.data.diff(resource.data).affectedKeys().hasAny(['likes', 'commentCount']);
 
       match /comments/{commentId} {
-        allow read, create: if request.auth != null;
+        allow read: if request.auth != null;
+        // Allow creating a comment if the user is authenticated and is the author of the comment.
+        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+        // Allow deletion if the user is the comment's author OR the article's author.
+        allow delete: if request.auth != null && 
+                       (resource.data.userId == request.auth.uid || 
+                        get(/databases/$(database)/documents/articles/$(articleId)).data.authorId == request.auth.uid);
       }
     }
 

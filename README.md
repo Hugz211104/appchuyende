@@ -55,24 +55,25 @@ Dự án này sử dụng Firebase của Google để xử lý dữ liệu và x
     *   **Firestore Database:** Nhấn vào, chọn **"Create database"**, chọn chế độ **Test mode** (Chế độ thử nghiệm) để dễ dàng bắt đầu. *Lưu ý: Chế độ này cho phép mọi người đọc/ghi dữ liệu, cần được bảo mật lại cho ứng dụng thực tế.*
     *   **Storage:** Nhấn vào, chọn **"Get started"**, và cũng chọn chế độ **Test mode**.
 
-### 3. Lấy mã nguồn và Cài đặt
+### 3. Tải và Cài đặt dự án
 
-1.  **Lấy mã nguồn về máy:**
-    Mở Terminal (hoặc Command Prompt) và chạy lệnh sau:
+1.  **Chạy các lệnh trong Terminal:**
+    Mở Terminal (hoặc Command Prompt), sau đó copy và chạy lần lượt từng lệnh dưới đây:
+
     ```sh
+    # 1. Tải mã nguồn về máy
     git clone https://github.com/Hugz211104/appchuyende.git
+
+    # 2. Di chuyển vào thư mục vừa tải về
+    cd appchuyende
+
+    # 3. Cài đặt tất cả các thư viện cần thiết
+    flutter pub get
     ```
 
 2.  **Mở dự án trong Android Studio:**
-    *   Mở Android Studio.
-    *   Chọn **"Open an Existing Project"** và trỏ đến thư mục `appchuyende` bạn vừa tải về.
-
-3.  **Cài đặt các gói thư viện:**
-    Mở Terminal ngay trong Android Studio và chạy lệnh:
-    ```sh
-    flutter pub get
-    ```
-    Lệnh này sẽ tự động tải về tất cả các thư viện cần thiết mà dự án đang sử dụng (như Provider, timeago, ...).
+    *   Sau khi các lệnh trên chạy xong, mở Android Studio.
+    *   Chọn **"Open an Existing Project"** (hoặc "Open") và trỏ đến thư mục `appchuyende`.
 
 ### 4. Chạy ứng dụng!
 

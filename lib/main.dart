@@ -1,6 +1,8 @@
 import 'package:chuyende/auth/auth_wrapper.dart';
 import 'package:chuyende/screens/login_screen.dart';
 import 'package:chuyende/services/auth_service.dart';
+import 'package:chuyende/utils/app_colors.dart';
+import 'package:chuyende/utils/app_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
@@ -15,6 +17,7 @@ void main() async {
   
   await FirebaseAppCheck.instance.activate(
     androidProvider: AndroidProvider.debug,
+    appleProvider: AppleProvider.debug,
   );
 
   runApp(const GenNewsApp());
@@ -42,66 +45,75 @@ class GenNewsApp extends StatelessWidget {
   ThemeData _buildTheme(BuildContext context) {
      final baseTheme = ThemeData.light();
     return baseTheme.copyWith(
-      scaffoldBackgroundColor: const Color(0xFFF5F5F7),
-      primaryColor: const Color(0xFF0A84FF),
+      scaffoldBackgroundColor: AppColors.background,
+      primaryColor: AppColors.primary,
       colorScheme: baseTheme.colorScheme.copyWith(
-        primary: const Color(0xFF0A84FF),
-        secondary: const Color(0xFF34C759),
+        primary: AppColors.primary,
+        secondary: AppColors.secondary,
         onPrimary: Colors.white,
-        surface: Colors.white, 
-        onSurface: const Color(0xFF1D1D1F),
-        background: const Color(0xFFF5F5F7),
+        surface: AppColors.surface, 
+        onSurface: AppColors.textPrimary,
+        background: AppColors.background,
+        error: AppColors.error,
       ),
-      textTheme: GoogleFonts.interTextTheme(baseTheme.textTheme).copyWith(
-        headlineSmall: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 24, color: const Color(0xFF1D1D1F)),
-        titleLarge: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 20, color: const Color(0xFF1D1D1F)),
-        bodyLarge: GoogleFonts.inter(fontSize: 16, color: const Color(0xFF333333)),
-        bodyMedium: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF666666)),
-      ).apply(bodyColor: const Color(0xFF1D1D1F)),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFFF5F5F7),
+      textTheme: baseTheme.textTheme.copyWith(
+        displayLarge: AppStyles.headline, // Headline 1
+        displayMedium: AppStyles.headline, // Headline 2
+        displaySmall: AppStyles.headline, // Headline 3
+        headlineMedium: AppStyles.headline, // Headline 4
+        headlineSmall: AppStyles.appBarTitle, // Headline 5, used for AppBar
+        titleLarge: AppStyles.username, // Headline 6, used for list tiles
+        bodyLarge: AppStyles.postContent,
+        bodyMedium: AppStyles.interactionText,
+        bodySmall: AppStyles.timestamp,
+        labelLarge: AppStyles.buttonText,
+      ).apply(bodyColor: AppColors.textPrimary, displayColor: AppColors.textPrimary),
+      appBarTheme: AppBarTheme(
+        backgroundColor: AppColors.background,
         elevation: 0,
-        iconTheme: IconThemeData(color: Color(0xFF1D1D1F)),
-        titleTextStyle: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1D1D1F)),
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        titleTextStyle: AppStyles.appBarTitle.copyWith(color: AppColors.textPrimary),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF0A84FF),
+          backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-          textStyle: GoogleFonts.inter(fontWeight: FontWeight.bold),
+          textStyle: AppStyles.buttonText,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
          style: OutlinedButton.styleFrom(
-           foregroundColor: const Color(0xFF1D1D1F),
-           side: BorderSide(color: Colors.grey.shade300),
+           foregroundColor: AppColors.textPrimary,
+           side: const BorderSide(color: AppColors.divider),
            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-           textStyle: GoogleFonts.inter(fontWeight: FontWeight.bold),
+           textStyle: AppStyles.buttonText.copyWith(color: AppColors.textPrimary),
          )
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.surface,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        hintStyle: GoogleFonts.inter(color: const Color(0xFF8A8A8E)),
+        hintStyle: GoogleFonts.poppins(color: AppColors.textSecondary),
       ),
       cardTheme: CardThemeData(
         elevation: 1,
         shadowColor: Colors.black.withOpacity(0.05),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        color: AppColors.surface,
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
-        selectedItemColor: Color(0xFF0A84FF),
-        unselectedItemColor: Color(0xFF8A8A8E),
+        backgroundColor: AppColors.surface,
+        selectedItemColor: AppColors.primary,
+        unselectedItemColor: AppColors.textSecondary,
         showSelectedLabels: false,
         showUnselectedLabels: false,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
       ),
+      dividerColor: AppColors.divider,
     );
   }
 }

@@ -1,3 +1,6 @@
+import 'package:chuyende/screens/post_detail_screen.dart';
+import 'package:chuyende/utils/app_colors.dart';
+import 'package:chuyende/utils/app_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -14,20 +17,40 @@ class NotificationScreen extends StatefulWidget {
 class _NotificationScreenState extends State<NotificationScreen> {
   final _currentUser = FirebaseAuth.instance.currentUser;
 
-  void _navigateToProfile(String userId) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (context) => ProfileScreen(userId: userId),
-    ));
-  }
+  Future<void> _handleNotificationTap(DocumentSnapshot notification) async {
+    final data = notification.data() as Map<String, dynamic>;
 
-  // A helper to mark notifications as read can be added here in the future.
+    // Mark as read immediately
+    if (data['isRead'] == false) {
+      await notification.reference.update({'isRead': true});
+    }
+
+    // Navigate based on type
+    final type = data['type'] as String?;
+    if (type == 'like' || type == 'comment') {
+      final postId = data['postId'] as String?;
+      if (postId != null && mounted) {
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => PostDetailScreen(postId: postId),
+        ));
+      }
+    } else if (type == 'follow') {
+      final actorId = data['actorId'] as String?;
+      if (actorId != null && mounted) {
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => ProfileScreen(userId: actorId),
+        ));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Thông báo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
+        title: Text('Thông báo', style: AppStyles.headline.copyWith(fontSize: 28)),
         centerTitle: false,
+        elevation: 0.5,
       ),
       body: _currentUser == null
           ? const Center(child: Text('Vui lòng đăng nhập để xem thông báo.'))
@@ -54,11 +77,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     return FutureBuilder<DocumentSnapshot>(
                       future: FirebaseFirestore.instance.collection('users').doc(data['actorId']).get(),
                       builder: (context, userSnapshot) {
-                        if (!userSnapshot.hasData) {
-                          return const ListTile(); // Or a loading tile
+                        if (!userSnapshot.hasData || userSnapshot.data?.data() == null) {
+                          // Show a placeholder while loading to prevent layout jumps
+                          return ListTile(leading: CircleAvatar(backgroundColor: AppColors.background));
                         }
 
-                        final actorData = userSnapshot.data!.data() as Map<String, dynamic>? ?? {};
+                        final actorData = userSnapshot.data!.data() as Map<String, dynamic>;
                         final actorName = actorData['displayName'] ?? 'Ai đó';
                         final actorPhotoUrl = actorData['photoURL'] as String?;
                         final timestamp = (data['timestamp'] as Timestamp).toDate();
@@ -79,22 +103,26 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         }
 
                         return ListTile(
+                          tileColor: data['isRead'] == false ? AppColors.primary.withOpacity(0.05) : Colors.transparent,
                           leading: CircleAvatar(
                             backgroundImage: (actorPhotoUrl != null && actorPhotoUrl.isNotEmpty) ? NetworkImage(actorPhotoUrl) : null,
-                            child: (actorPhotoUrl == null || actorPhotoUrl.isEmpty) ? const Icon(Icons.person) : null,
+                            backgroundColor: AppColors.primary.withOpacity(0.1),
+                            child: (actorPhotoUrl == null || actorPhotoUrl.isEmpty)
+                                ? Text(actorName[0].toUpperCase(), style: AppStyles.username.copyWith(color: AppColors.primary))
+                                : null,
                           ),
                           title: RichText(
                             text: TextSpan(
-                              style: DefaultTextStyle.of(context).style,
+                              style: DefaultTextStyle.of(context).style.copyWith(fontSize: 15, color: AppColors.textPrimary),
                               children: [
-                                TextSpan(text: actorName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                TextSpan(text: actorName, style: AppStyles.username.copyWith(fontSize: 15)),
                                 TextSpan(text: ' $notificationMessage'),
                               ],
                             ),
                           ),
-                          subtitle: Text(timeago.format(timestamp, locale: 'vi')),
-                          onTap: () => _navigateToProfile(data['actorId']), // Or navigate to post
-                          trailing: data['type'] == 'follow' ? const Icon(Icons.person_add_alt_1_sharp) : const Icon(Icons.article),
+                          subtitle: Text(timeago.format(timestamp, locale: 'vi'), style: AppStyles.timestamp),
+                          onTap: () => _handleNotificationTap(notification),
+                          trailing: data['isRead'] == false ? const Icon(Icons.circle, color: AppColors.primary, size: 12) : null,
                         );
                       },
                     );

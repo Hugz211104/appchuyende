@@ -1,3 +1,5 @@
+import 'package:chuyende/utils/app_colors.dart';
+import 'package:chuyende/utils/dimens.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -53,7 +55,6 @@ class _ChatScreenState extends State<ChatScreen> {
       'timestamp': now,
     };
 
-    // We need info for both users to store in the chat room document
     final currentUserData = await FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).get();
     final recipientUserData = await FirebaseFirestore.instance.collection('users').doc(widget.recipientId).get();
 
@@ -73,7 +74,6 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     };
 
-    // Use a batch write to ensure atomicity
     final batch = FirebaseFirestore.instance.batch();
     batch.set(chatRoomRef, chatRoomData, SetOptions(merge: true));
     batch.set(messageRef, messageData);
@@ -111,7 +111,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ? Text(widget.recipientName[0])
                   : null,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppDimens.space12),
             Text(widget.recipientName),
           ],
         ),
@@ -138,6 +138,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 final messages = snapshot.data!.docs;
                 return ListView.builder(
                   reverse: true,
+                  padding: const EdgeInsets.all(AppDimens.space8),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[index].data() as Map<String, dynamic>;
@@ -158,15 +159,15 @@ class _ChatScreenState extends State<ChatScreen> {
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+        margin: const EdgeInsets.symmetric(vertical: AppDimens.space4, horizontal: AppDimens.space8),
+        padding: const EdgeInsets.symmetric(vertical: AppDimens.space12, horizontal: AppDimens.space16),
         decoration: BoxDecoration(
-          color: isMe ? Theme.of(context).primaryColor : Colors.grey[300],
-          borderRadius: BorderRadius.circular(20),
+          color: isMe ? Theme.of(context).primaryColor : AppColors.surface,
+          borderRadius: BorderRadius.circular(AppDimens.space24),
         ),
         child: Text(
           message['text'] ?? '',
-          style: TextStyle(color: isMe ? Colors.white : Colors.black),
+          style: TextStyle(color: isMe ? Colors.white : AppColors.textPrimary),
         ),
       ),
     );
@@ -174,32 +175,38 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildMessageComposer() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
-      color: Colors.white,
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              decoration: InputDecoration(
-                hintText: 'Nhập tin nhắn...',
-                filled: true,
-                fillColor: Colors.grey[100],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
+      padding: const EdgeInsets.symmetric(horizontal: AppDimens.space8, vertical: AppDimens.space12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: const Border(top: BorderSide(color: AppColors.divider)),
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _messageController,
+                decoration: InputDecoration(
+                  hintText: 'Nhập tin nhắn...',
+                  filled: true,
+                  fillColor: AppColors.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppDimens.space24),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: AppDimens.space12, horizontal: AppDimens.space16),
                 ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                textCapitalization: TextCapitalization.sentences,
               ),
-              textCapitalization: TextCapitalization.sentences,
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.send),
-            onPressed: _sendMessage,
-            color: Theme.of(context).primaryColor,
-          ),
-        ],
+             const SizedBox(width: AppDimens.space8),
+            IconButton(
+              icon: const Icon(Icons.send),
+              onPressed: _sendMessage,
+              color: Theme.of(context).primaryColor,
+            ),
+          ],
+        ),
       ),
     );
   }

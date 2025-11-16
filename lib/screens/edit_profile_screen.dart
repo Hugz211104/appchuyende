@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:chuyende/services/storage_service.dart';
+import 'package:chuyende/utils/dimens.dart';
 import 'package:chuyende/widgets/custom_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -190,27 +191,48 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       appBar: AppBar(
         title: const Text('Chỉnh sửa hồ sơ'),
         actions: [
-          if (_isSaving) const Padding(padding: EdgeInsets.all(16.0), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+          if (_isSaving) const Padding(padding: EdgeInsets.all(AppDimens.space16), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
           if (!_isSaving) TextButton(onPressed: _saveProfile, child: const Text('LƯU')),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(AppDimens.space16),
               child: Form(
                 key: _formKey,
                 child: Column(
                   children: [
                     _buildImagePickers(),
-                    const SizedBox(height: 70),
+                    const SizedBox(height: 72.0), // Space for avatar (48) + margin (24)
+                    if (_userData?['displayName'] != null && _userData!['displayName'].isNotEmpty)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          _userData!['displayName'],
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ),
+                    if (_userData?['handle'] != null && _userData!['handle'].isNotEmpty)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '@${_userData!['handle']}',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: Colors.grey,
+                              ),
+                        ),
+                      ),
+                    const SizedBox(height: AppDimens.space16), // Add some space after the name/handle
                     TextFormField(
                       controller: _displayNameController,
                       decoration: const InputDecoration(labelText: 'Tên hiển thị', border: OutlineInputBorder()),
                       validator: (value) => (value == null || value.trim().isEmpty) ? 'Vui lòng nhập tên hiển thị' : null,
                       autovalidateMode: AutovalidateMode.onUserInteraction,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppDimens.space16),
                     TextFormField(
                       controller: _handleController,
                       decoration: const InputDecoration(labelText: 'Tên người dùng', border: OutlineInputBorder(), prefixText: '@'),
@@ -221,22 +243,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       },
                       autovalidateMode: AutovalidateMode.onUserInteraction,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppDimens.space16),
                     TextFormField(
                       controller: _bioController,
                       decoration: const InputDecoration(labelText: 'Tiểu sử', border: OutlineInputBorder()),
                       maxLines: 3,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppDimens.space16),
                      ListTile(
                         contentPadding: EdgeInsets.zero,
                         title: Text(_dateOfBirth == null ? 'Chọn ngày sinh' : 'Ngày sinh: ${DateFormat('dd/MM/yyyy').format(_dateOfBirth!)}'),
                         trailing: const Icon(Icons.calendar_today),
                         onTap: _selectDate,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4), side: BorderSide(color: Colors.grey.shade400)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppDimens.space4), side: BorderSide(color: Colors.grey.shade400)),
                         tileColor: Colors.white,
                       ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppDimens.space16),
                     DropdownButtonFormField<String>(
                       value: _gender,
                       decoration: const InputDecoration(
@@ -291,27 +313,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         GestureDetector(
           onTap: () => _showImageSourcePicker((file) => setState(() => _coverImageFile = file)),
           child: Container(
-            height: 180,
+            height: 176,
             width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.grey[300],
               image: DecorationImage(image: coverImageProvider, fit: BoxFit.cover, onError: (e,s) {}),
             ),
-            child: const Center(child: Icon(Icons.camera_alt, color: Colors.white70, size: 30)),
+            child: const Center(child: Icon(Icons.camera_alt, color: Colors.white70, size: AppDimens.space32)),
           ),
         ),
         Positioned(
-          bottom: -50,
+          bottom: -AppDimens.space48, // -48
           child: GestureDetector(
             onTap: () => _showImageSourcePicker((file) => setState(() => _profileImageFile = file)),
             child: CircleAvatar(
-              radius: 55,
+              radius: 56, // 8px padding around avatar
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               child: CircleAvatar(
-                radius: 50,
+                radius: 48,
                 backgroundColor: Colors.grey[300],
                 backgroundImage: profileImageProvider,
-                child: (profileImageProvider == null) ? const Icon(Icons.person, size: 50) : null,
+                child: (profileImageProvider == null) ? const Icon(Icons.person, size: AppDimens.space48) : null,
               ),
             ),
           ),

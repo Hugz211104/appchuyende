@@ -1,13 +1,15 @@
 import 'package:chuyende/screens/chat_screen.dart';
 import 'package:chuyende/screens/edit_profile_screen.dart';
 import 'package:chuyende/services/auth_service.dart';
+import 'package:chuyende/utils/app_colors.dart';
+import 'package:chuyende/utils/app_styles.dart';
+import 'package:chuyende/utils/dimens.dart';
 import 'package:chuyende/widgets/article_post_card.dart';
 import 'package:chuyende/widgets/custom_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -195,8 +197,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final String displayName = _userData?['displayName'] ?? 'Người dùng';
+    
     return Scaffold(
-      appBar: _buildAppBar(),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -204,129 +207,134 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               child: NestedScrollView(
                 headerSliverBuilder: (context, innerBoxIsScrolled) {
                   return [
-                    SliverToBoxAdapter(child: _buildProfileHeader()),
+                    SliverAppBar(
+                      expandedHeight: 200.0,
+                      floating: false,
+                      pinned: true,
+                      // New flexible space with consistent design
+                      flexibleSpace: _buildFlexibleSpaceBar(),
+                      actions: [
+                        if (_isCurrentUserProfile)
+                          IconButton(icon: const Icon(Icons.logout), onPressed: _showLogoutConfirmationDialog, tooltip: 'Đăng xuất'),
+                      ],
+                    ),
+                    SliverToBoxAdapter(child: _buildProfileDetails()),
+                    SliverPersistentHeader(
+                      delegate: _SliverAppBarDelegate(
+                        TabBar(
+                          controller: _tabController,
+                          labelColor: Theme.of(context).primaryColor,
+                          unselectedLabelColor: AppColors.textSecondary,
+                          indicatorColor: Theme.of(context).primaryColor,
+                          tabs: const [Tab(text: 'Bài viết'), Tab(text: 'Bạn bè')],
+                        ),
+                      ),
+                      pinned: true,
+                    ),
                   ];
                 },
-                body: _buildTabBarView(),
+                body: TabBarView(
+                    controller: _tabController,
+                    children: [
+                       _buildPostList(),
+                       _buildFriendsList(),
+                    ],
+                ),
               ),
             ),
     );
   }
 
-  AppBar _buildAppBar() {
-    return AppBar(
-      centerTitle: true,
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('GN', style: GoogleFonts.poppins(color: const Color(0xFF0A84FF), fontSize: 24, fontWeight: FontWeight.bold)),
-          Text('GenNews', style: GoogleFonts.poppins(color: const Color(0xFF1D1D1F), fontSize: 24, fontWeight: FontWeight.bold)),
-        ],
-      ),
-      actions: [
-        if (_isCurrentUserProfile)
-          IconButton(icon: const Icon(Icons.logout), onPressed: _showLogoutConfirmationDialog, tooltip: 'Đăng xuất'),
-      ],
-      bottom: TabBar(
-        controller: _tabController,
-        labelColor: Theme.of(context).primaryColor,
-        unselectedLabelColor: const Color(0xFF8A8A8E),
-        indicatorColor: Theme.of(context).primaryColor,
-        tabs: const [Tab(text: 'Bài viết'), Tab(text: 'Bạn bè')],
+  Widget _buildFlexibleSpaceBar() {
+    final String? coverPhotoUrl = _userData?['coverPhotoUrl'];
+
+    return FlexibleSpaceBar(
+      background: Container(
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          image: coverPhotoUrl != null && coverPhotoUrl.isNotEmpty 
+            ? DecorationImage(image: NetworkImage(coverPhotoUrl), fit: BoxFit.cover)
+            : null,
+        ),
       ),
     );
   }
 
-  Widget _buildProfileHeader() {
+  Widget _buildProfileDetails() {
     final String displayName = _userData?['displayName'] ?? 'Không có tên';
     final String? photoURL = _userData?['photoURL'];
     final String handle = '@${_userData?['handle'] ?? 'userhandle'}';
-    final String bio = _userData?['bio'] ?? 'Đam mê báo chí và kể chuyện.';
+    final String bio = _userData?['bio'] ?? 'Chưa có tiểu sử.';
     int postCount = _userPosts.length;
     int followers = (_userData?['followers'] as List?)?.length ?? 0;
     int following = (_userData?['following'] as List?)?.length ?? 0;
-    final String? gender = _userData?['gender'];
-    final DateTime? dateOfBirth = _userData?['dateOfBirth'] is Timestamp ? (_userData!['dateOfBirth'] as Timestamp).toDate() : null;
 
-
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 50,
-            backgroundImage: (photoURL != null && photoURL.isNotEmpty) ? NetworkImage(photoURL) : null,
-            backgroundColor: Colors.grey[200],
-            child: (photoURL == null || photoURL.isEmpty) ? const Icon(Icons.person, size: 50, color: Colors.grey) : null,
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.topCenter,
+      children: [
+        // Details container
+        Container(
+          margin: const EdgeInsets.only(top: 60), // Space for avatar
+          padding: const EdgeInsets.fromLTRB(AppDimens.space16, 70, AppDimens.space16, AppDimens.space16),
+          decoration: const BoxDecoration(
+              color: AppColors.surface, // Use surface color for the card
+              borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(AppDimens.space24),
+                  topRight: Radius.circular(AppDimens.space24),
+              ),
           ),
-          const SizedBox(height: 16),
-          Text(displayName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(handle, style: const TextStyle(fontSize: 16, color: Colors.grey)),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              if (gender != null)
-                Row(
-                  children: [
-                    Icon(gender == 'Nam' ? Icons.male : gender == 'Nữ' ? Icons.female : Icons.transgender, size: 16, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(gender, style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                    const SizedBox(width: 12),
-                  ],
+              Text(displayName, style: AppStyles.headline.copyWith(fontSize: 22)),
+              const SizedBox(height: AppDimens.space4),
+              Text(handle, style: AppStyles.timestamp.copyWith(fontSize: 16)),
+              const SizedBox(height: AppDimens.space16),
+              if (bio.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppDimens.space16),
+                  child: Text(bio, style: AppStyles.postContent, textAlign: TextAlign.center),
                 ),
-              if (dateOfBirth != null)
-                Row(
-                  children: [
-                    const Icon(CupertinoIcons.gift_fill, size: 16, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(DateFormat('dd/MM/yyyy').format(dateOfBirth), style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                  ],
-                ),
+              const SizedBox(height: AppDimens.space24),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                _buildStatColumn(followers.toString(), "Người theo dõi"),
+                _buildStatColumn(following.toString(), "Đang theo dõi"),
+                _buildStatColumn(postCount.toString(), "Bài viết"),
+              ]),
+              const SizedBox(height: AppDimens.space24),
+              _isCurrentUserProfile
+                  ? SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(onPressed: _navigateToEditProfile, child: const Text('Chỉnh sửa hồ sơ')),
+                    )
+                  : Row(
+                      children: [
+                        Expanded(child: ElevatedButton(onPressed: _toggleFollow, child: Text(_isFollowing ? 'Bỏ theo dõi' : 'Theo dõi'))),
+                        const SizedBox(width: AppDimens.space8),
+                        Expanded(child: OutlinedButton(onPressed: _navigateToChat, child: const Text('Nhắn tin'))),
+                      ],
+                    ),
             ],
           ),
-          const SizedBox(height: 24),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-            _buildStatColumn(followers.toString(), "Người theo dõi"),
-            _buildStatColumn(following.toString(), "Đang theo dõi"),
-            _buildStatColumn(postCount.toString(), "Bài viết"),
-          ]),
-          const SizedBox(height: 24),
-          const Align(alignment: Alignment.centerLeft, child: Text("Giới thiệu", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-          const SizedBox(height: 8),
-          Align(alignment: Alignment.centerLeft, child: Text(bio, style: const TextStyle(fontSize: 16, color: Colors.black87))),
-          const SizedBox(height: 24),
-          _isCurrentUserProfile
-              ? SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: _navigateToEditProfile,
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), side: BorderSide(color: Colors.grey.shade300), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                    child: const Text('Chỉnh sửa hồ sơ', style: TextStyle(fontSize: 16, color: Colors.black87)),
-                  ),
-                )
-              : Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _toggleFollow,
-                        style: ElevatedButton.styleFrom(backgroundColor: _isFollowing ? Colors.grey : Theme.of(context).primaryColor, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                        child: Text(_isFollowing ? 'Bỏ theo dõi' : 'Theo dõi', style: const TextStyle(fontSize: 16, color: Colors.white)),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _navigateToChat,
-                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), side: BorderSide(color: Colors.grey.shade300), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                        child: const Text('Nhắn tin', style: TextStyle(fontSize: 16, color: Colors.black87)),
-                      ),
-                    ),
-                  ],
-                ),
-        ],
-      ),
+        ),
+        // Main Avatar on top
+        Positioned(
+          top: 0,
+          child: CircleAvatar(
+              radius: 60,
+              backgroundColor: AppColors.surface,
+              child: CircleAvatar(
+                radius: 56,
+                backgroundImage: (photoURL != null && photoURL.isNotEmpty) ? NetworkImage(photoURL) : null,
+                backgroundColor: AppColors.primary.withOpacity(0.1),
+                child: (photoURL == null || photoURL.isEmpty)
+                    ? Text(displayName[0].toUpperCase(), style: AppStyles.headline.copyWith(color: AppColors.primary, fontSize: 48))
+                    : null,
+              ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -334,57 +342,77 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 14, color: Colors.grey)),
-      ],
-    );
-  }
-
-  Widget _buildTabBarView() {
-    return TabBarView(
-      controller: _tabController,
-      children: [
-        _buildPostList(),
-        _buildFriendsList(),
+        Text(value, style: AppStyles.username.copyWith(fontSize: 18)),
+        const SizedBox(height: AppDimens.space4),
+        Text(label, style: AppStyles.timestamp),
       ],
     );
   }
 
   Widget _buildPostList() {
     if (_userPosts.isEmpty) {
-      return const Center(child: Padding(padding: EdgeInsets.all(40.0), child: Text('Chưa có bài viết nào.')));
+      return const Center(child: Padding(padding: EdgeInsets.all(AppDimens.space24), child: Text('Chưa có bài viết nào.')));
     }
+    // Reuse ArticlePostCard for a consistent UI
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.all(AppDimens.space16),
       itemCount: _userPosts.length,
       itemBuilder: (context, index) {
         final document = _userPosts[index];
-        return ArticlePostCard(document: document);
+        return ArticlePostCard(document: document, authorData: _userData);
       },
     );
   }
 
   Widget _buildFriendsList() {
     if (_friends.isEmpty) {
-      return const Center(child: Padding(padding: EdgeInsets.all(40.0), child: Text('Chưa có bạn bè nào.')));
+      return const Center(child: Padding(padding: EdgeInsets.all(AppDimens.space24), child: Text('Chưa có bạn bè nào.')));
     }
     return ListView.builder(
       itemCount: _friends.length,
       itemBuilder: (context, index) {
         final friendData = _friends[index].data() as Map<String, dynamic>;
         final photoURL = friendData['photoURL'] as String?;
+        final displayName = friendData['displayName'] ?? 'Người dùng';
 
         return ListTile(
           leading: CircleAvatar(
             backgroundImage: (photoURL != null && photoURL.isNotEmpty) ? NetworkImage(photoURL) : null,
-            child: (photoURL == null || photoURL.isEmpty) ? const Icon(Icons.person) : null,
+            backgroundColor: AppColors.primary.withOpacity(0.1),
+            child: (photoURL == null || photoURL.isEmpty)
+                ? Text(displayName[0].toUpperCase(), style: AppStyles.username.copyWith(color: AppColors.primary))
+                : null,
           ),
-          title: Text(friendData['displayName'] ?? 'Không có tên'),
-          subtitle: Text('@${friendData['handle'] ?? 'no_handle'}'),
+          title: Text(displayName, style: AppStyles.username),
+          subtitle: Text('@${friendData['handle'] ?? 'no_handle'}', style: AppStyles.timestamp),
           onTap: () => _navigateToProfile(_friends[index].id),
         );
       },
     );
+  }
+}
+
+// Delegate for sticking the TabBar to the top
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate(this._tabBar);
+
+  final TabBar _tabBar;
+
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: _tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return false;
   }
 }

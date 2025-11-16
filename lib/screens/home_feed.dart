@@ -1,12 +1,14 @@
 import 'package:chuyende/screens/create_post_screen.dart';
 import 'package:chuyende/screens/profile_screen.dart';
+import 'package:chuyende/utils/app_colors.dart';
+import 'package:chuyende/utils/app_styles.dart';
+import 'package:chuyende/utils/dimens.dart';
 import 'package:chuyende/widgets/article_post_card.dart';
 import 'package:chuyende/widgets/shimmer_loading.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class HomeFeed extends StatefulWidget {
   const HomeFeed({super.key});
@@ -33,6 +35,17 @@ class _HomeFeedState extends State<HomeFeed> {
     _searchController.dispose();
     super.dispose();
   }
+  
+  Future<void> _handleRefresh() async {
+    // Simulate network delay for a better user experience
+    await Future.delayed(const Duration(seconds: 1));
+    // The StreamBuilders will automatically handle fetching the latest data.
+    // We can call setState to rebuild any non-stream parts of the UI if needed.
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
 
   void _navigateToCreatePost() {
     Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CreatePostScreen()));
@@ -47,10 +60,17 @@ class _HomeFeedState extends State<HomeFeed> {
   Widget _buildNormalAppBar() {
     return SliverAppBar(
       title: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Text('GN', style: GoogleFonts.poppins(color: Theme.of(context).primaryColor, fontSize: 24, fontWeight: FontWeight.bold)),
-          Text('GenNews', style: GoogleFonts.poppins(color: Theme.of(context).textTheme.titleLarge?.color, fontSize: 24, fontWeight: FontWeight.bold)),
+          const Icon(
+            CupertinoIcons.news,
+            color: AppColors.primary,
+            size: 28,
+          ),
+          const SizedBox(width: AppDimens.space8),
+          Text(
+            'GenNews',
+            style: AppStyles.appBarTitle,
+          ),
         ],
       ),
       actions: [
@@ -58,22 +78,13 @@ class _HomeFeedState extends State<HomeFeed> {
           icon: const Icon(CupertinoIcons.search),
           onPressed: () => setState(() => _isSearching = true),
         ),
+        const SizedBox(width: AppDimens.space8),
       ],
       centerTitle: false,
       pinned: true,
       floating: true,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      elevation: 0,
-      expandedHeight: 120.0,
-      flexibleSpace: FlexibleSpaceBar(
-        background: Align(
-          alignment: Alignment.bottomLeft,
-          child: Padding(
-            padding: const EdgeInsets.only(left: 16.0, bottom: 16.0),
-            child: Text('Trang chủ', style: GoogleFonts.poppins(fontSize: 34, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.titleLarge?.color)),
-          ),
-        ),
-      ),
+      backgroundColor: AppColors.background,
+      elevation: 0.5,
     );
   }
 
@@ -105,14 +116,16 @@ class _HomeFeedState extends State<HomeFeed> {
 
   List<Widget> _buildHomeContent() {
     final photoURL = _currentUser?.photoURL;
+    final displayName = _currentUser?.displayName ?? ' ';
+    
     return [
       SliverToBoxAdapter(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 16.0),
+          padding: const EdgeInsets.fromLTRB(AppDimens.space16, AppDimens.space8, AppDimens.space16, AppDimens.space16),
           child: GestureDetector(
             onTap: _navigateToCreatePost,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: AppDimens.space16, vertical: AppDimens.space12),
               decoration: BoxDecoration(
                   color: Theme.of(context).cardTheme.color,
                   borderRadius: BorderRadius.circular(30.0),
@@ -123,11 +136,17 @@ class _HomeFeedState extends State<HomeFeed> {
                   CircleAvatar(
                     radius: 18,
                     backgroundImage: (photoURL != null && photoURL.isNotEmpty) ? NetworkImage(photoURL) : null,
-                    backgroundColor: Colors.grey.shade200,
-                    child: (photoURL == null || photoURL.isEmpty) ? const Icon(Icons.person, size: 20, color: Colors.grey) : null,
+                    backgroundColor: AppColors.primary.withOpacity(0.1),
+                    child: (photoURL == null || photoURL.isEmpty)
+                        ? Text(displayName[0].toUpperCase(), style: AppStyles.username.copyWith(color: AppColors.primary, fontSize: 14))
+                        : null,
                   ),
-                  const SizedBox(width: 12),
-                  Text('Bạn đang nghĩ gì?', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600])),
+                  const SizedBox(width: AppDimens.space12),
+                  Expanded(
+                    child: Text('Chia sẻ điều bạn nghĩ...', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+                  ),
+                  const SizedBox(width: AppDimens.space12),
+                  const Icon(CupertinoIcons.photo_on_rectangle, color: AppColors.secondary)
                 ],
               ),
             ),
@@ -138,22 +157,22 @@ class _HomeFeedState extends State<HomeFeed> {
         stream: FirebaseFirestore.instance.collection('articles').orderBy('publishedAt', descending: true).snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return SliverToBoxAdapter(child: Center(child: Padding(padding: const EdgeInsets.all(40), child: Text('Lỗi: ${snapshot.error}'))));
+            return SliverToBoxAdapter(child: Center(child: Padding(padding: const EdgeInsets.all(AppDimens.space24), child: Text('Lỗi: ${snapshot.error}'))));
           }
           if (snapshot.connectionState == ConnectionState.waiting) {
             return SliverList(delegate: SliverChildBuilderDelegate((context, index) => const ArticlePlaceholder(), childCount: 5));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(40.0), child: Text('Chưa có bài viết nào.'))));
+            return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(AppDimens.space24), child: Text('Chưa có bài viết nào.'))));
           }
           final documents = snapshot.data!.docs;
           return SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.fromLTRB(AppDimens.space16, 0, AppDimens.space16, AppDimens.space16),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0),
+                    padding: const EdgeInsets.only(bottom: AppDimens.space16),
                     child: ArticlePostCard(document: documents[index]),
                   );
                 },
@@ -167,23 +186,32 @@ class _HomeFeedState extends State<HomeFeed> {
   }
 
   Widget _buildUserListTile(DocumentSnapshot doc) {
-      final data = doc.data() as Map<String, dynamic>?;
-      final displayName = data?['displayName'] as String? ?? 'Người dùng';
-      final handle = data?['handle'] as String? ?? 'unknown_handle';
-      final photoURL = data?['photoURL'] as String?;
+    final data = doc.data() as Map<String, dynamic>?;
+    final displayName = data?['displayName'] as String? ?? 'Người dùng';
+    final handle = data?['handle'] as String? ?? 'unknown_handle';
+    final photoURL = data?['photoURL'] as String?;
 
-      return ListTile(
-        leading: CircleAvatar(
-          backgroundImage: (photoURL != null && photoURL.isNotEmpty) ? NetworkImage(photoURL) : null,
-          backgroundColor: Colors.grey.shade200,
-          child: (photoURL == null || photoURL.isEmpty) 
-              ? const Icon(CupertinoIcons.person_fill, color: Colors.grey)
-              : null,
-        ),
-        title: Text(displayName),
-        subtitle: Text('@$handle'),
-        onTap: () => _navigateToProfile(doc.id),
-      );
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundImage: (photoURL != null && photoURL.isNotEmpty) ? NetworkImage(photoURL) : null,
+        backgroundColor: AppColors.primary.withOpacity(0.1),
+        child: (photoURL == null || photoURL.isEmpty)
+            ? Text(
+                displayName.isNotEmpty ? displayName[0].toUpperCase() : '',
+                style: AppStyles.username.copyWith(color: AppColors.primary),
+              )
+            : null,
+      ),
+      title: Text(displayName),
+      subtitle: Text('@$handle'),
+      trailing: OutlinedButton(
+        onPressed: () {
+          // TODO: Implement follow logic
+        },
+        child: const Text('Theo dõi'),
+      ),
+      onTap: () => _navigateToProfile(doc.id),
+    );
   }
 
 
@@ -195,15 +223,15 @@ class _HomeFeedState extends State<HomeFeed> {
       return [
         const SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: EdgeInsets.fromLTRB(AppDimens.space16, AppDimens.space16, AppDimens.space16, AppDimens.space8),
             child: Text('Gợi ý bạn bè', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ),
         ),
         StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance.collection('users').where('handle', isNull: false).limit(10).snapshots(),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator())));
-            if(snapshot.data!.docs.isEmpty) return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(40.0),child: Text("Không có gợi ý nào."))));
+            if (!snapshot.hasData) return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(AppDimens.space16), child: CircularProgressIndicator())));
+            if(snapshot.data!.docs.isEmpty) return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(AppDimens.space24),child: Text("Không có gợi ý nào."))));
             return SliverList(
               delegate: SliverChildBuilderDelegate((context, index) {
                 return _buildUserListTile(snapshot.data!.docs[index]);
@@ -219,7 +247,7 @@ class _HomeFeedState extends State<HomeFeed> {
     return [
        SliverToBoxAdapter(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          padding: const EdgeInsets.fromLTRB(AppDimens.space16, AppDimens.space16, AppDimens.space16, AppDimens.space8),
           child: Text('Kết quả tìm kiếm', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ),
       ),
@@ -232,10 +260,10 @@ class _HomeFeedState extends State<HomeFeed> {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator())));
+            return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(AppDimens.space16), child: CircularProgressIndicator())));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(40.0), child: Text("Không tìm thấy người dùng nào cho \"$searchQuery\""))));
+            return SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(AppDimens.space24), child: Text("Không tìm thấy người dùng nào cho \"$searchQuery\""))));
           }
           return SliverList(
             delegate: SliverChildBuilderDelegate((context, index) {
@@ -250,11 +278,15 @@ class _HomeFeedState extends State<HomeFeed> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: CustomScrollView(
-        slivers: <Widget>[
-          _isSearching ? _buildSearchAppBar() : _buildNormalAppBar(),
-          ...(_isSearching ? _buildSearchResults() : _buildHomeContent()),
-        ],
+      body: RefreshIndicator(
+        onRefresh: _handleRefresh,
+        color: AppColors.primary,
+        child: CustomScrollView(
+          slivers: <Widget>[
+            _isSearching ? _buildSearchAppBar() : _buildNormalAppBar(),
+            ...(_isSearching ? _buildSearchResults() : _buildHomeContent()),
+          ],
+        ),
       ),
     );
   }

@@ -48,9 +48,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
             return Center(child: Text('Đã xảy ra lỗi: \${snapshot.error}'));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24.0),
+                padding: const EdgeInsets.all(24.0),
                 child: Text(
                   'Chưa có cuộc trò chuyện nào.\\nHãy bắt đầu nhắn tin với ai đó từ hồ sơ của họ.',
                   textAlign: TextAlign.center,

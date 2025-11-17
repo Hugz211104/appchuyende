@@ -1,3 +1,4 @@
+import 'package:chuyende/screens/chat_list_screen.dart';
 import 'package:chuyende/screens/create_post_screen.dart';
 import 'package:chuyende/screens/profile_screen.dart';
 import 'package:chuyende/utils/app_colors.dart';
@@ -35,20 +36,20 @@ class _HomeFeedState extends State<HomeFeed> {
     _searchController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _handleRefresh() async {
-    // Simulate network delay for a better user experience
     await Future.delayed(const Duration(seconds: 1));
-    // The StreamBuilders will automatically handle fetching the latest data.
-    // We can call setState to rebuild any non-stream parts of the UI if needed.
     if (mounted) {
       setState(() {});
     }
   }
 
-
   void _navigateToCreatePost() {
     Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CreatePostScreen()));
+  }
+
+  void _navigateToChatList() {
+    Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ChatListScreen()));
   }
 
   void _navigateToProfile(String userId) {
@@ -77,6 +78,11 @@ class _HomeFeedState extends State<HomeFeed> {
         IconButton(
           icon: const Icon(CupertinoIcons.search),
           onPressed: () => setState(() => _isSearching = true),
+        ),
+        IconButton(
+          icon: const Icon(CupertinoIcons.chat_bubble),
+          onPressed: _navigateToChatList,
+          tooltip: 'Tin nhắn',
         ),
         const SizedBox(width: AppDimens.space8),
       ],
@@ -117,7 +123,7 @@ class _HomeFeedState extends State<HomeFeed> {
   List<Widget> _buildHomeContent() {
     final photoURL = _currentUser?.photoURL;
     final displayName = _currentUser?.displayName ?? ' ';
-    
+
     return [
       SliverToBoxAdapter(
         child: Padding(
@@ -214,11 +220,9 @@ class _HomeFeedState extends State<HomeFeed> {
     );
   }
 
-
   List<Widget> _buildSearchResults() {
     final searchQuery = _searchController.text.trim();
 
-    // Friend Suggestions
     if (searchQuery.isEmpty) {
       return [
         const SliverToBoxAdapter(
@@ -242,7 +246,6 @@ class _HomeFeedState extends State<HomeFeed> {
       ];
     }
 
-    // Actual Search Results
     final handleQuery = searchQuery.startsWith('@') ? searchQuery.substring(1) : searchQuery;
     return [
        SliverToBoxAdapter(

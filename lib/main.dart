@@ -3,6 +3,7 @@ import 'package:chuyende/screens/login_screen.dart';
 import 'package:chuyende/services/auth_service.dart';
 import 'package:chuyende/utils/app_colors.dart';
 import 'package:chuyende/utils/app_styles.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
@@ -14,10 +15,14 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   timeago.setLocaleMessages('vi', timeago.ViMessages());
   await Firebase.initializeApp();
-  
+
+  // Smartly set the Android provider based on the build mode (debug/release).
+  const androidProvider = kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity;
+
   await FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.debug,
-    appleProvider: AppleProvider.debug,
+    androidProvider: androidProvider,
+    // For Apple platforms, you might want a similar condition
+    appleProvider: AppleProvider.debug, 
   );
 
   runApp(const GenNewsApp());
@@ -95,8 +100,31 @@ class GenNewsApp extends StatelessWidget {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        hintStyle: GoogleFonts.poppins(color: AppColors.textSecondary),
+        // The label text style
+        labelStyle: GoogleFonts.poppins(color: AppColors.textSecondary),
+        // The style of the label when it floats to the top
+        floatingLabelStyle: GoogleFonts.poppins(color: AppColors.primary),
+        // Define the border for the "OutlinedBox" style
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.divider),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.divider),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2.0),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.error, width: 2.0),
+        ),
       ),
       cardTheme: CardThemeData(
         elevation: 1,

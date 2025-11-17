@@ -37,7 +37,7 @@ class AuthService extends ChangeNotifier {
           'email': email,
           'displayName': email.split('@')[0], 
           'photoURL': null, 
-          'coverPhotoUrl': 'https://source.unsplash.com/random/800x600?nature', 
+          'coverPhotoUrl': null, // Set to null to avoid unreliable URL
           'followers': [],
           'following': [],
           'profileCompleted': false, // Ensure this is false on creation

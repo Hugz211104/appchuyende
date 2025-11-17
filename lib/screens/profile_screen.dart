@@ -138,7 +138,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       setState(() {
         _isFollowing = wasFollowing;
         List followers = _userData?['followers'] as List? ?? [];
-        if(wasFollowing) followers.remove(_currentUser!.uid); else followers.add(_currentUser!.uid);
+        if(wasFollowing) {
+          followers.add(_currentUser!.uid);
+        } else {
+          followers.remove(_currentUser!.uid);
+        }
         _userData?['followers'] = followers;
       });
       print("Lỗi khi chuyển đổi theo dõi: $e");

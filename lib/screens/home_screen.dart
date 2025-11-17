@@ -22,11 +22,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static final List<Widget> _widgetOptions = <Widget>[
     const HomeFeed(),
-    const DiscoverScreen(),
-    // This is a placeholder for the center button, it's never actually shown
-    const Scaffold(), 
+    const DiscoverScreen(), // Restored Discover Screen
+    const Scaffold(), // Placeholder for FAB
     const NotificationScreen(),
-    // Important: Use a key to ensure it rebuilds if userId changes, though not strictly needed here
     ProfileScreen(userId: FirebaseAuth.instance.currentUser!.uid),
   ];
 
@@ -38,10 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onItemTapped(int index) {
-    // The middle item (index 2) is the FAB, so we don't navigate
     if (index == 2) return;
-    
-    // Animate to the new page
     _pageController.jumpToPage(index);
   }
 
@@ -66,9 +61,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: PageView(
         controller: _pageController,
-        onPageChanged: _onPageChanged, // Keep track of page swipes
+        onPageChanged: _onPageChanged,
         children: _widgetOptions,
-        // Disable scrolling for the placeholder page
         physics: const ClampingScrollPhysics(),
       ),
       floatingActionButton: FloatingActionButton(
@@ -85,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
             _buildNavItem(CupertinoIcons.house, CupertinoIcons.house_fill, 0, 'Trang chủ'),
-            _buildNavItem(CupertinoIcons.search, CupertinoIcons.search, 1, 'Khám phá'),
+            _buildNavItem(CupertinoIcons.search, CupertinoIcons.search, 1, 'Khám phá'), // Restored Discover Icon
             const SizedBox(width: 40), // The space for the FAB
             _buildNavItem(CupertinoIcons.bell, CupertinoIcons.bell_fill, 3, 'Thông báo'),
             _buildNavItem(CupertinoIcons.person, CupertinoIcons.person_fill, 4, 'Hồ sơ'),

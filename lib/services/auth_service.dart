@@ -50,6 +50,62 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  // New method to check follow status in real-time
+  Stream<bool> isFollowing(String targetUserId) {
+    if (_user == null) {
+      return Stream.value(false);
+    }
+    return _firestore.collection('users').doc(_user!.uid).snapshots().map((snapshot) {
+      final data = snapshot.data();
+      if (data != null && data.containsKey('following')) {
+        final followingList = List<String>.from(data['following']);
+        return followingList.contains(targetUserId);
+      }
+      return false;
+    });
+  }
+
+  // New method to toggle follow/unfollow status
+  Future<void> toggleFollow(String targetUserId) async {
+    if (_user == null) {
+      throw Exception('User not logged in');
+    }
+    final currentUserId = _user!.uid;
+
+    if (currentUserId == targetUserId) {
+      throw Exception('Cannot follow yourself');
+    }
+
+    final currentUserDocRef = _firestore.collection('users').doc(currentUserId);
+    final targetUserDocRef = _firestore.collection('users').doc(targetUserId);
+
+    final writeBatch = _firestore.batch();
+
+    final currentUserDoc = await currentUserDocRef.get();
+    final List<String> following = List<String>.from(currentUserDoc.data()?['following'] ?? []);
+
+    if (following.contains(targetUserId)) {
+      // --- Unfollow logic ---
+      writeBatch.update(currentUserDocRef, {
+        'following': FieldValue.arrayRemove([targetUserId])
+      });
+      writeBatch.update(targetUserDocRef, {
+        'followers': FieldValue.arrayRemove([currentUserId])
+      });
+    } else {
+      // --- Follow logic ---
+      writeBatch.update(currentUserDocRef, {
+        'following': FieldValue.arrayUnion([targetUserId])
+      });
+      writeBatch.update(targetUserDocRef, {
+        'followers': FieldValue.arrayUnion([currentUserId])
+      });
+    }
+
+    await writeBatch.commit();
+    // No need to notifyListeners() here, as the stream in isFollowing will handle UI updates automatically
+  }
+
   Future<void> signOut() async {
     await _auth.signOut();
   }

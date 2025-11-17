@@ -30,7 +30,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   List<DocumentSnapshot> _userPosts = [];
   List<DocumentSnapshot> _friends = [];
   bool _isLoading = true;
-  bool _isFollowing = false;
   late TabController _tabController;
 
   @override
@@ -51,12 +50,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       
       _userData = userDoc.data();
 
-      bool following = false;
-      if (!_isCurrentUserProfile) {
-        final currentUserFollows = (await FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).get()).data()?['following'] as List? ?? [];
-        following = currentUserFollows.contains(_targetUserId);
-      }
-
       final List<dynamic> userFollowing = _userData?['following'] ?? [];
       final List<dynamic> userFollowers = _userData?['followers'] ?? [];
       final friendIds = userFollowing.where((id) => userFollowers.contains(id)).toList();
@@ -70,7 +63,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       if (mounted) {
         setState(() {
           _userPosts = postsSnapshot.docs;
-          _isFollowing = following;
           _friends = friendDocs;
           _isLoading = false;
         });
@@ -101,52 +93,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         recipientAvatarUrl: _userData?['photoURL'] as String?,
       ),
     ));
-  }
-
-  Future<void> _toggleFollow() async {
-    if (_currentUser == null || _isCurrentUserProfile) return;
-
-    final currentUserRef = FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid);
-    final targetUserRef = FirebaseFirestore.instance.collection('users').doc(_targetUserId);
-
-    final bool wasFollowing = _isFollowing;
-
-    setState(() {
-      _isFollowing = !_isFollowing;
-      List followers = _userData?['followers'] as List? ?? [];
-      if (_isFollowing) followers.add(_currentUser!.uid); else followers.remove(_currentUser!.uid);
-      _userData?['followers'] = followers;
-    });
-
-    try {
-      if (!wasFollowing) {
-        await currentUserRef.update({'following': FieldValue.arrayUnion([_targetUserId])});
-        await targetUserRef.update({'followers': FieldValue.arrayUnion([_currentUser!.uid])});
-
-        await FirebaseFirestore.instance.collection('notifications').add({
-          'type': 'follow',
-          'recipientId': _targetUserId,
-          'actorId': _currentUser!.uid,
-          'timestamp': FieldValue.serverTimestamp(),
-          'isRead': false,
-        });
-      } else {
-        await currentUserRef.update({'following': FieldValue.arrayRemove([_targetUserId])});
-        await targetUserRef.update({'followers': FieldValue.arrayRemove([_currentUser!.uid])});
-      }
-    } catch (e) {
-      setState(() {
-        _isFollowing = wasFollowing;
-        List followers = _userData?['followers'] as List? ?? [];
-        if(wasFollowing) {
-          followers.add(_currentUser!.uid);
-        } else {
-          followers.remove(_currentUser!.uid);
-        }
-        _userData?['followers'] = followers;
-      });
-      print("Lỗi khi chuyển đổi theo dõi: $e");
-    }
   }
 
   Future<void> _logout(BuildContext context) async {
@@ -201,8 +147,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    final String displayName = _userData?['displayName'] ?? 'Người dùng';
-    
     return Scaffold(
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -215,7 +159,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       expandedHeight: 200.0,
                       floating: false,
                       pinned: true,
-                      // New flexible space with consistent design
                       flexibleSpace: _buildFlexibleSpaceBar(),
                       actions: [
                         if (_isCurrentUserProfile)
@@ -265,6 +208,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   }
 
   Widget _buildProfileDetails() {
+    final authService = Provider.of<AuthService>(context, listen: false);
     final String displayName = _userData?['displayName'] ?? 'Không có tên';
     final String? photoURL = _userData?['photoURL'];
     final String handle = '@${_userData?['handle'] ?? 'userhandle'}';
@@ -277,7 +221,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       clipBehavior: Clip.none,
       alignment: Alignment.topCenter,
       children: [
-        // Details container
         Container(
           margin: const EdgeInsets.only(top: 60), // Space for avatar
           padding: const EdgeInsets.fromLTRB(AppDimens.space16, 70, AppDimens.space16, AppDimens.space16),
@@ -314,7 +257,24 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     )
                   : Row(
                       children: [
-                        Expanded(child: ElevatedButton(onPressed: _toggleFollow, child: Text(_isFollowing ? 'Bỏ theo dõi' : 'Theo dõi'))),
+                        Expanded(
+                          child: StreamBuilder<bool>(
+                            stream: authService.isFollowing(_targetUserId),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) {
+                                return const ElevatedButton(onPressed: null, child: Text(''));
+                              }
+                              final isFollowing = snapshot.data!;
+                              return ElevatedButton(
+                                onPressed: () => authService.toggleFollow(_targetUserId),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: isFollowing ? Colors.grey : AppColors.primary,
+                                ),
+                                child: Text(isFollowing ? 'Đang theo dõi' : 'Theo dõi'),
+                              );
+                            },
+                          ),
+                        ),
                         const SizedBox(width: AppDimens.space8),
                         Expanded(child: OutlinedButton(onPressed: _navigateToChat, child: const Text('Nhắn tin'))),
                       ],
@@ -322,7 +282,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             ],
           ),
         ),
-        // Main Avatar on top
         Positioned(
           top: 0,
           child: CircleAvatar(
@@ -357,7 +316,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     if (_userPosts.isEmpty) {
       return const Center(child: Padding(padding: EdgeInsets.all(AppDimens.space24), child: Text('Chưa có bài viết nào.')));
     }
-    // Reuse ArticlePostCard for a consistent UI
     return ListView.builder(
       padding: const EdgeInsets.all(AppDimens.space16),
       itemCount: _userPosts.length,
@@ -396,7 +354,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   }
 }
 
-// Delegate for sticking the TabBar to the top
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   _SliverAppBarDelegate(this._tabBar);
 

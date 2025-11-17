@@ -1,6 +1,7 @@
 import 'package:chuyende/screens/chat_list_screen.dart';
 import 'package:chuyende/screens/create_post_screen.dart';
 import 'package:chuyende/screens/profile_screen.dart';
+import 'package:chuyende/services/auth_service.dart';
 import 'package:chuyende/utils/app_colors.dart';
 import 'package:chuyende/utils/app_styles.dart';
 import 'package:chuyende/utils/dimens.dart';
@@ -10,6 +11,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class HomeFeed extends StatefulWidget {
   const HomeFeed({super.key});
@@ -122,7 +124,7 @@ class _HomeFeedState extends State<HomeFeed> {
 
   List<Widget> _buildHomeContent() {
     final photoURL = _currentUser?.photoURL;
-    final displayName = _currentUser?.displayName ?? ' ';
+    final displayName = _currentUser?.displayName;
 
     return [
       SliverToBoxAdapter(
@@ -144,7 +146,10 @@ class _HomeFeedState extends State<HomeFeed> {
                     backgroundImage: (photoURL != null && photoURL.isNotEmpty) ? NetworkImage(photoURL) : null,
                     backgroundColor: AppColors.primary.withOpacity(0.1),
                     child: (photoURL == null || photoURL.isEmpty)
-                        ? Text(displayName[0].toUpperCase(), style: AppStyles.username.copyWith(color: AppColors.primary, fontSize: 14))
+                        ? Text(
+                            (displayName != null && displayName.isNotEmpty) ? displayName[0].toUpperCase() : 'G',
+                            style: AppStyles.username.copyWith(color: AppColors.primary, fontSize: 14)
+                          )
                         : null,
                   ),
                   const SizedBox(width: AppDimens.space12),
@@ -192,10 +197,17 @@ class _HomeFeedState extends State<HomeFeed> {
   }
 
   Widget _buildUserListTile(DocumentSnapshot doc) {
+    final authService = Provider.of<AuthService>(context, listen: false);
     final data = doc.data() as Map<String, dynamic>?;
-    final displayName = data?['displayName'] as String? ?? 'Người dùng';
+    final userId = doc.id;
+    final displayName = data?['displayName'] as String? ?? '';
     final handle = data?['handle'] as String? ?? 'unknown_handle';
     final photoURL = data?['photoURL'] as String?;
+
+    // Do not show the follow button for the current user
+    if (userId == _currentUser?.uid) {
+      return const SizedBox.shrink();
+    }
 
     return ListTile(
       leading: CircleAvatar(
@@ -203,20 +215,32 @@ class _HomeFeedState extends State<HomeFeed> {
         backgroundColor: AppColors.primary.withOpacity(0.1),
         child: (photoURL == null || photoURL.isEmpty)
             ? Text(
-                displayName.isNotEmpty ? displayName[0].toUpperCase() : '',
+                (displayName.isNotEmpty) ? displayName[0].toUpperCase() : '!',
                 style: AppStyles.username.copyWith(color: AppColors.primary),
               )
             : null,
       ),
-      title: Text(displayName),
+      title: Text(displayName.isNotEmpty ? displayName : 'Người dùng ẩn danh'),
       subtitle: Text('@$handle'),
-      trailing: OutlinedButton(
-        onPressed: () {
-          // TODO: Implement follow logic
+      trailing: StreamBuilder<bool>(
+        stream: authService.isFollowing(userId),
+        builder: (context, snapshot) {
+          final isFollowing = snapshot.data ?? false;
+          return isFollowing
+              ? ElevatedButton(
+                  onPressed: () => authService.toggleFollow(userId),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                  ),
+                  child: const Text('Đang theo dõi'),
+                )
+              : OutlinedButton(
+                  onPressed: () => authService.toggleFollow(userId),
+                  child: const Text('Theo dõi'),
+                );
         },
-        child: const Text('Theo dõi'),
       ),
-      onTap: () => _navigateToProfile(doc.id),
+      onTap: () => _navigateToProfile(userId),
     );
   }
 

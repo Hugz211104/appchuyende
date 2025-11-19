@@ -328,7 +328,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             onTap: () => _showImageSourcePicker((file) => setState(() => _profileImageFile = file)),
             child: CircleAvatar(
               radius: 56, // 8px padding around avatar
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              backgroundColor: Colors.white,
               child: CircleAvatar(
                 radius: 48,
                 backgroundColor: Colors.grey[300],

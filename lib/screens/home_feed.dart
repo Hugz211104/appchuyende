@@ -174,7 +174,7 @@ class _HomeFeedState extends State<HomeFeed> {
             return SliverList(delegate: SliverChildBuilderDelegate((context, index) => const ArticlePlaceholder(), childCount: 5));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(AppDimens.space24), child: Text('Chưa có bài viết nào.'))));
+            return const SliverToBoxAdapter(child: Center(child: Padding(padding: const EdgeInsets.all(AppDimens.space24), child: Text('Chưa có bài viết nào.'))));
           }
           final documents = snapshot.data!.docs;
           return SliverPadding(
@@ -228,14 +228,14 @@ class _HomeFeedState extends State<HomeFeed> {
           final isFollowing = snapshot.data ?? false;
           return isFollowing
               ? ElevatedButton(
-                  onPressed: () => authService.toggleFollow(userId),
+                  onPressed: () => authService.toggleFollow(context, userId),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                   ),
                   child: const Text('Đang theo dõi'),
                 )
               : OutlinedButton(
-                  onPressed: () => authService.toggleFollow(userId),
+                  onPressed: () => authService.toggleFollow(context, userId),
                   child: const Text('Theo dõi'),
                 );
         },

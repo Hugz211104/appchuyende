@@ -27,6 +27,7 @@ dependencies:
   google_fonts: ^6.1.0
   cupertino_icons: ^1.0.8
   timeago: ^3.6.1
+  shimmer: ^3.0.0
 
   # News Feature Packages
   http: ^1.2.1

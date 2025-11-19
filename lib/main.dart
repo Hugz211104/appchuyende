@@ -1,5 +1,6 @@
 import 'package:chuyende/auth/auth_wrapper.dart';
 import 'package:chuyende/screens/login_screen.dart';
+import 'package:chuyende/screens/register_screen.dart';
 import 'package:chuyende/services/auth_service.dart';
 import 'package:chuyende/utils/app_colors.dart';
 import 'package:chuyende/utils/app_styles.dart';
@@ -18,11 +19,12 @@ void main() async {
 
   // Smartly set the Android provider based on the build mode (debug/release).
   const androidProvider = kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity;
+  // Smartly set the Apple provider based on the build mode (debug/release).
+  const appleProvider = kDebugMode ? AppleProvider.debug : AppleProvider.appAttest;
 
   await FirebaseAppCheck.instance.activate(
     androidProvider: androidProvider,
-    // For Apple platforms, you might want a similar condition
-    appleProvider: AppleProvider.debug, 
+    appleProvider: appleProvider,
   );
 
   runApp(const GenNewsApp());
@@ -36,12 +38,23 @@ class GenNewsApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (context) => AuthService(),
       child: MaterialApp(
+        scaffoldMessengerKey: scaffoldMessengerKey, // Set the key here
         title: 'GenNews',
         theme: _buildTheme(context),
         debugShowCheckedModeBanner: false,
         home: AuthWrapper(),
+        // Define routes for navigation
         routes: {
-          '/login': (context) => LoginScreen(showRegisterScreen: () {}),
+          '/login': (context) => LoginScreen(
+                showRegisterScreen: () {
+                  Navigator.pushNamed(context, '/register');
+                },
+              ),
+          '/register': (context) => RegisterScreen(
+                showLoginScreen: () {
+                  Navigator.pop(context); // Go back to the login screen
+                },
+              ),
         },
       ),
     );
@@ -56,7 +69,7 @@ class GenNewsApp extends StatelessWidget {
         primary: AppColors.primary,
         secondary: AppColors.secondary,
         onPrimary: Colors.white,
-        surface: AppColors.surface, 
+        surface: AppColors.surface,
         onSurface: AppColors.textPrimary,
         background: AppColors.background,
         error: AppColors.error,
@@ -83,53 +96,59 @@ class GenNewsApp extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
           textStyle: AppStyles.buttonText,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
          style: OutlinedButton.styleFrom(
            foregroundColor: AppColors.textPrimary,
-           side: const BorderSide(color: AppColors.divider),
-           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+           side: const BorderSide(color: AppColors.divider, width: 1.5),
+           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
            textStyle: AppStyles.buttonText.copyWith(color: AppColors.textPrimary),
          )
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
-        // The label text style
         labelStyle: GoogleFonts.poppins(color: AppColors.textSecondary),
-        // The style of the label when it floats to the top
         floatingLabelStyle: GoogleFonts.poppins(color: AppColors.primary),
-        // Define the border for the "OutlinedBox" style
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.divider),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.divider, width: 1.5),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.divider),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.divider, width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppColors.primary, width: 2.0),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppColors.error, width: 1.5),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppColors.error, width: 2.0),
         ),
       ),
+       tabBarTheme: TabBarThemeData(
+        labelColor: AppColors.primary,
+        unselectedLabelColor: AppColors.textSecondary,
+        indicator: const UnderlineTabIndicator(
+          borderSide: BorderSide(color: AppColors.primary, width: 2.0),
+        ),
+        labelStyle: AppStyles.buttonText,
+        unselectedLabelStyle: AppStyles.buttonText,
+      ),
       cardTheme: CardThemeData(
-        elevation: 1,
+        elevation: 0.5,
         shadowColor: Colors.black.withOpacity(0.05),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         color: AppColors.surface,
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(

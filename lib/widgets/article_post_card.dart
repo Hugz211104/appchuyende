@@ -11,10 +11,94 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
+// A dedicated StatefulWidget to handle its own expanded/collapsed state.
+class ExpandablePostContent extends StatefulWidget {
+  final String text;
+  final int maxLines;
+  final TextStyle style;
+
+  const ExpandablePostContent({
+    Key? key,
+    required this.text,
+    required this.style,
+    this.maxLines = 5,
+  }) : super(key: key);
+
+  @override
+  _ExpandablePostContentState createState() => _ExpandablePostContentState();
+}
+
+class _ExpandablePostContentState extends State<ExpandablePostContent> {
+  bool _isExpanded = false;
+  bool _isTextOverflowing = false;
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final textSpan = TextSpan(text: widget.text, style: widget.style);
+        final textPainter = TextPainter(
+          text: textSpan,
+          maxLines: widget.maxLines,
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout(maxWidth: constraints.maxWidth);
+
+        // Check if the text is overflowing and update the state.
+        // We use a post-frame callback to avoid calling setState during a build.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _isTextOverflowing != textPainter.didExceedMaxLines) {
+            setState(() {
+              _isTextOverflowing = textPainter.didExceedMaxLines;
+            });
+          }
+        });
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.text,
+              style: widget.style,
+              maxLines: _isExpanded ? null : widget.maxLines,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (_isTextOverflowing)
+              Padding(
+                padding: const EdgeInsets.only(top: AppDimens.space4),
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _isExpanded = !_isExpanded;
+                    });
+                  },
+                  child: Text(
+                    _isExpanded ? 'Thu gọn' : 'Xem thêm',
+                    style: AppStyles.timestamp.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+
 class ArticlePostCard extends StatefulWidget {
   final DocumentSnapshot document;
   final bool isSharedPost;
-  final Map<String, dynamic>? authorData; // Now optional
+  final Map<String, dynamic>? authorData;
 
   const ArticlePostCard({
     super.key,
@@ -56,7 +140,6 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
         }
       }
     } catch (e) {
-      // Handle error, maybe show a snackbar
       print("Error toggling like: $e");
     }
   }
@@ -146,11 +229,17 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
     return StreamBuilder<DocumentSnapshot>(
       stream: widget.document.reference.snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting && widget.authorData == null) {
-           return const Card(child: Padding(padding: EdgeInsets.all(16.0), child: Center(child: CircularProgressIndicator())));
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            widget.authorData == null) {
+          return const Card(
+              child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Center(child: CircularProgressIndicator())));
         }
 
-        if (!snapshot.hasData || !snapshot.data!.exists || snapshot.data!.data() == null) {
+        if (!snapshot.hasData ||
+            !snapshot.data!.exists ||
+            snapshot.data!.data() == null) {
           if (widget.isSharedPost) {
             return Container(
                 padding: const EdgeInsets.all(AppDimens.space12),
@@ -173,7 +262,8 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
         if (postType == 'shared') {
           cardContent = _buildSharedPostContent(doc, data);
         } else {
-          cardContent = _buildNormalPostContent(doc, data, authorData: widget.authorData);
+          cardContent =
+              _buildNormalPostContent(doc, data, authorData: widget.authorData);
         }
 
         if (widget.isSharedPost) {
@@ -205,18 +295,26 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         _buildPostHeader(authorId, authorName, authorAvatarUrl, timestamp),
         const SizedBox(height: AppDimens.space12),
         if (title.isNotEmpty)
           Text(title,
               style: AppStyles.postContent.copyWith(fontWeight: FontWeight.w500)),
-        const SizedBox(height: AppDimens.space4),
-        if (content.isNotEmpty) Text(content, style: AppStyles.postContent),
-        if (!widget.isSharedPost) _buildStatsRow(data),
-        if (!widget.isSharedPost)
+        if (title.isNotEmpty) const SizedBox(height: AppDimens.space4),
+        if (content.isNotEmpty)
+          ExpandablePostContent(
+            text: content,
+            style: AppStyles.postContent,
+            maxLines: 5,
+          ),
+        if (!widget.isSharedPost) ...[
+          const SizedBox(height: AppDimens.space12),
+          _buildStatsRow(data),
           const Divider(height: AppDimens.space16, color: AppColors.divider),
-        if (!widget.isSharedPost) _buildActionButtons(data),
+          _buildActionButtons(data),
+        ]
       ],
     );
   }
@@ -237,7 +335,7 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
       future: FirebaseFirestore.instance.collection('users').doc(authorId).get(),
       builder: (context, userSnapshot) {
         if (!userSnapshot.hasData || userSnapshot.data?.data() == null) {
-          return const SizedBox(height: 150); // Placeholder height
+          return const SizedBox(height: 150);
         }
         final userData = userSnapshot.data!.data() as Map<String, dynamic>;
         final authorName = userData['displayName'] ?? 'Người dùng';
@@ -253,13 +351,14 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
     final sharerId = sharedData['authorId'];
     final sharedContent = sharedData['content'] ?? '';
     final timestamp = sharedData['publishedAt'] as Timestamp?;
-    final originalPostRef = sharedData['originalPostRef'] as DocumentReference?;
+    final originalPostRef =
+        sharedData['originalPostRef'] as DocumentReference?;
 
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance.collection('users').doc(sharerId).get(),
       builder: (context, userSnapshot) {
         if (!userSnapshot.hasData || userSnapshot.data?.data() == null) {
-          return const SizedBox(height: 250); // Placeholder height
+          return const SizedBox(height: 250); 
         }
         final sharerData = userSnapshot.data!.data() as Map<String, dynamic>;
         final sharerName = sharerData['displayName'] ?? 'Người dùng';
@@ -267,11 +366,16 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             _buildPostHeader(sharerId, sharerName, sharerAvatarUrl, timestamp),
             const SizedBox(height: AppDimens.space12),
             if (sharedContent.isNotEmpty)
-              Text(sharedContent, style: AppStyles.postContent),
+              ExpandablePostContent(
+                text: sharedContent,
+                style: AppStyles.postContent,
+                maxLines: 3,
+              ),
             const SizedBox(height: AppDimens.space12),
             _buildNestedOriginalPost(originalPostRef),
             const SizedBox(height: AppDimens.space8),
@@ -284,24 +388,24 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
     );
   }
 
-   Widget _buildNestedOriginalPost(DocumentReference? originalPostRef) {
+  Widget _buildNestedOriginalPost(DocumentReference? originalPostRef) {
     if (originalPostRef == null) return const SizedBox.shrink();
 
     return FutureBuilder<DocumentSnapshot>(
       future: originalPostRef.get(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-            return Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppDimens.space12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.divider),
-                  borderRadius: BorderRadius.circular(AppDimens.space8),
-                ),
-                child: Text('Đang tải bài viết gốc...'),
-              );
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppDimens.space12),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.divider),
+              borderRadius: BorderRadius.circular(AppDimens.space8),
+            ),
+            child: const Text('Đang tải bài viết gốc...'),
+          );
         }
-        
+
         final originalPost = snapshot.data;
         if (originalPost != null && originalPost.exists) {
           return Container(

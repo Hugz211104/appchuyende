@@ -11,17 +11,20 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
-// A dedicated StatefulWidget to handle its own expanded/collapsed state.
+/// A self-contained widget to display text that can be expanded or collapsed.
+/// This version uses a character count limit for stability and reliability.
 class ExpandablePostContent extends StatefulWidget {
   final String text;
   final int maxLines;
   final TextStyle style;
+  final int characterLimit; // Show "Xem thêm" if text is longer than this
 
   const ExpandablePostContent({
     Key? key,
     required this.text,
     required this.style,
     this.maxLines = 5,
+    this.characterLimit = 250, 
   }) : super(key: key);
 
   @override
@@ -30,66 +33,63 @@ class ExpandablePostContent extends StatefulWidget {
 
 class _ExpandablePostContentState extends State<ExpandablePostContent> {
   bool _isExpanded = false;
-  bool _isTextOverflowing = false;
+  late final bool _isLongText;
 
   @override
   void initState() {
     super.initState();
+    // Determine if the text is long ONLY ONCE when the widget is first created.
+    _isLongText = widget.text.length > widget.characterLimit;
+  }
+
+  // This handles cases where the parent widget rebuilds with different text,
+  // for example, when scrolling through a list and widgets are reused.
+  @override
+  void didUpdateWidget(covariant ExpandablePostContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the text content has changed, re-evaluate the length and reset the state.
+    if (widget.text != oldWidget.text) {
+      setState(() {
+        _isLongText = widget.text.length > widget.characterLimit;
+        _isExpanded = false; // Collapse the new content by default
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final textSpan = TextSpan(text: widget.text, style: widget.style);
-        final textPainter = TextPainter(
-          text: textSpan,
-          maxLines: widget.maxLines,
-          textDirection: TextDirection.ltr,
-        );
-        textPainter.layout(maxWidth: constraints.maxWidth);
-
-        // Check if the text is overflowing and update the state.
-        // We use a post-frame callback to avoid calling setState during a build.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && _isTextOverflowing != textPainter.didExceedMaxLines) {
-            setState(() {
-              _isTextOverflowing = textPainter.didExceedMaxLines;
-            });
-          }
-        });
-        
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              widget.text,
-              style: widget.style,
-              maxLines: _isExpanded ? null : widget.maxLines,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (_isTextOverflowing)
-              Padding(
-                padding: const EdgeInsets.only(top: AppDimens.space4),
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _isExpanded = !_isExpanded;
-                    });
-                  },
-                  child: Text(
-                    _isExpanded ? 'Thu gọn' : 'Xem thêm',
-                    style: AppStyles.timestamp.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          widget.text,
+          style: widget.style,
+          // If the text is not long, always show it fully (maxLines: null).
+          // Otherwise, respect the expanded/collapsed state.
+          maxLines: !_isLongText ? null : (_isExpanded ? null : widget.maxLines),
+          overflow: TextOverflow.ellipsis,
+        ),
+        // The button's visibility is now controlled by the simple and stable `_isLongText` flag.
+        if (_isLongText)
+          Padding(
+            padding: const EdgeInsets.only(top: AppDimens.space4),
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isExpanded = !_isExpanded;
+                });
+              },
+              child: Text(
+                _isExpanded ? 'Thu gọn' : 'Xem thêm',
+                style: AppStyles.timestamp.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-          ],
-        );
-      },
+            ),
+          ),
+      ],
     );
   }
 }
@@ -226,61 +226,59 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: widget.document.reference.snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            widget.authorData == null) {
-          return const Card(
-              child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: Center(child: CircularProgressIndicator())));
-        }
-
-        if (!snapshot.hasData ||
-            !snapshot.data!.exists ||
-            snapshot.data!.data() == null) {
-          if (widget.isSharedPost) {
-            return Container(
-                padding: const EdgeInsets.all(AppDimens.space12),
-                decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.divider),
-                    borderRadius: BorderRadius.circular(AppDimens.space8)),
-                child: Text('Bài viết gốc đã bị xóa.',
-                    style: AppStyles.timestamp
-                        .copyWith(fontStyle: FontStyle.italic)));
+    return Card(
+      key: ValueKey(widget.document.id),
+      margin: const EdgeInsets.only(bottom: AppDimens.space16),
+      elevation: 1,
+      shadowColor: Colors.black.withOpacity(0.05),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimens.space12)),
+      child: StreamBuilder<DocumentSnapshot>(
+        stream: widget.document.reference.snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              widget.authorData == null) {
+            return const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Center(child: CircularProgressIndicator()));
           }
-          return const SizedBox.shrink();
-        }
 
-        final doc = snapshot.data!;
-        final data = doc.data() as Map<String, dynamic>;
-        final String postType = data['type'] ?? 'normal';
+          if (!snapshot.hasData ||
+              !snapshot.data!.exists ||
+              snapshot.data!.data() == null) {
+            if (widget.isSharedPost) {
+              return Container(
+                  padding: const EdgeInsets.all(AppDimens.space12),
+                  child: Text('Bài viết gốc đã bị xóa.',
+                      style: AppStyles.timestamp
+                          .copyWith(fontStyle: FontStyle.italic)));
+            }
+            return const SizedBox.shrink();
+          }
 
-        Widget cardContent;
+          final doc = snapshot.data!;
+          final data = doc.data() as Map<String, dynamic>;
+          final String postType = data['type'] ?? 'normal';
 
-        if (postType == 'shared') {
-          cardContent = _buildSharedPostContent(doc, data);
-        } else {
-          cardContent =
-              _buildNormalPostContent(doc, data, authorData: widget.authorData);
-        }
+          Widget cardContent;
 
-        if (widget.isSharedPost) {
-          return cardContent;
-        }
+          if (postType == 'shared') {
+            cardContent = _buildSharedPostContent(doc, data);
+          } else {
+            cardContent = _buildNormalPostContent(doc, data,
+                authorData: widget.authorData);
+          }
 
-        return Card(
-            margin: const EdgeInsets.only(bottom: AppDimens.space16),
-            elevation: 1,
-            shadowColor: Colors.black.withOpacity(0.05),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppDimens.space12)),
-            child: Padding(
-              padding: const EdgeInsets.all(AppDimens.space16),
-              child: cardContent,
-            ));
-      },
+          if (widget.isSharedPost) {
+            return cardContent;
+          }
+
+          return Padding(
+            padding: const EdgeInsets.all(AppDimens.space16),
+            child: cardContent,
+          );
+        },
+      ),
     );
   }
 
@@ -300,14 +298,18 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
         _buildPostHeader(authorId, authorName, authorAvatarUrl, timestamp),
         const SizedBox(height: AppDimens.space12),
         if (title.isNotEmpty)
-          Text(title,
-              style: AppStyles.postContent.copyWith(fontWeight: FontWeight.w500)),
-        if (title.isNotEmpty) const SizedBox(height: AppDimens.space4),
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppDimens.space4),
+            child: Text(title,
+                style: AppStyles.postContent
+                    .copyWith(fontWeight: FontWeight.w500)),
+          ),
         if (content.isNotEmpty)
           ExpandablePostContent(
             text: content,
             style: AppStyles.postContent,
             maxLines: 5,
+            characterLimit: 250,
           ),
         if (!widget.isSharedPost) ...[
           const SizedBox(height: AppDimens.space12),
@@ -332,7 +334,8 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
     }
 
     return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(authorId).get(),
+      future:
+          FirebaseFirestore.instance.collection('users').doc(authorId).get(),
       builder: (context, userSnapshot) {
         if (!userSnapshot.hasData || userSnapshot.data?.data() == null) {
           return const SizedBox(height: 150);
@@ -355,10 +358,11 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
         sharedData['originalPostRef'] as DocumentReference?;
 
     return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('users').doc(sharerId).get(),
+      future:
+          FirebaseFirestore.instance.collection('users').doc(sharerId).get(),
       builder: (context, userSnapshot) {
         if (!userSnapshot.hasData || userSnapshot.data?.data() == null) {
-          return const SizedBox(height: 250); 
+          return const SizedBox(height: 250);
         }
         final sharerData = userSnapshot.data!.data() as Map<String, dynamic>;
         final sharerName = sharerData['displayName'] ?? 'Người dùng';
@@ -375,6 +379,7 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
                 text: sharedContent,
                 style: AppStyles.postContent,
                 maxLines: 3,
+                characterLimit: 150, // Shorter limit for shared comments
               ),
             const SizedBox(height: AppDimens.space12),
             _buildNestedOriginalPost(originalPostRef),
@@ -394,16 +399,12 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
     return FutureBuilder<DocumentSnapshot>(
       future: originalPostRef.get(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return Container(
+        if (snapshot.connectionState == ConnectionState.waiting) {
+           return Container(
             width: double.infinity,
             padding: const EdgeInsets.all(AppDimens.space12),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.divider),
-              borderRadius: BorderRadius.circular(AppDimens.space8),
-            ),
             child: const Text('Đang tải bài viết gốc...'),
-          );
+           );
         }
 
         final originalPost = snapshot.data;
@@ -425,7 +426,8 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
               borderRadius: BorderRadius.circular(AppDimens.space8),
             ),
             child: Text('Bài viết gốc không còn tồn tại.',
-                style: AppStyles.timestamp.copyWith(fontStyle: FontStyle.italic)),
+                style:
+                    AppStyles.timestamp.copyWith(fontStyle: FontStyle.italic)),
           );
         }
       },
@@ -446,14 +448,15 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
           onTap: () => _navigateToProfile(authorId),
           child: CircleAvatar(
             radius: 24,
-            backgroundImage: (authorAvatarUrl != null &&
-                    authorAvatarUrl.isNotEmpty)
-                ? NetworkImage(authorAvatarUrl)
-                : null,
+            backgroundImage:
+                (authorAvatarUrl != null && authorAvatarUrl.isNotEmpty)
+                    ? NetworkImage(authorAvatarUrl)
+                    : null,
             backgroundColor: AppColors.primary.withOpacity(0.1),
             child: (authorAvatarUrl == null || authorAvatarUrl.isEmpty)
                 ? Text(displayName[0].toUpperCase(),
-                    style: AppStyles.username.copyWith(color: AppColors.primary))
+                    style:
+                        AppStyles.username.copyWith(color: AppColors.primary))
                 : null,
           ),
         ),
@@ -468,7 +471,7 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
             ],
           ),
         ),
-        if (isPostOwner)
+        if (isPostOwner && !widget.isSharedPost)
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_horiz, color: AppColors.textSecondary),
             onSelected: (value) {
@@ -482,7 +485,8 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
               const PopupMenuItem<String>(
                 value: 'edit',
                 child: ListTile(
-                    leading: Icon(Icons.edit_outlined), title: Text('Chỉnh sửa')),
+                    leading: Icon(Icons.edit_outlined),
+                    title: Text('Chỉnh sửa')),
               ),
               const PopupMenuItem<String>(
                 value: 'delete',

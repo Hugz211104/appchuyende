@@ -52,7 +52,6 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // New method to check follow status in real-time
   Stream<bool> isFollowing(String targetUserId) {
     if (_user == null) {
       return Stream.value(false);
@@ -67,7 +66,6 @@ class AuthService extends ChangeNotifier {
     });
   }
 
-  // New method to toggle follow/unfollow status
   Future<void> toggleFollow(BuildContext context, String targetUserId) async {
     if (_user == null) {
       throw Exception('User not logged in');
@@ -80,29 +78,43 @@ class AuthService extends ChangeNotifier {
 
     final currentUserDocRef = _firestore.collection('users').doc(currentUserId);
     final targetUserDocRef = _firestore.collection('users').doc(targetUserId);
+    final notificationRef = _firestore.collection('notifications');
 
     final writeBatch = _firestore.batch();
 
     final currentUserDoc = await currentUserDocRef.get();
     final List<String> following = List<String>.from(currentUserDoc.data()?['following'] ?? []);
-
     final isCurrentlyFollowing = following.contains(targetUserId);
 
     if (isCurrentlyFollowing) {
       // --- Unfollow logic ---
-      writeBatch.update(currentUserDocRef, {
-        'following': FieldValue.arrayRemove([targetUserId])
-      });
-      writeBatch.update(targetUserDocRef, {
-        'followers': FieldValue.arrayRemove([currentUserId])
-      });
+      writeBatch.update(currentUserDocRef, {'following': FieldValue.arrayRemove([targetUserId])});
+      writeBatch.update(targetUserDocRef, {'followers': FieldValue.arrayRemove([currentUserId])});
+
+      // Delete the follow notification
+      final notificationQuery = await notificationRef
+          .where('type', isEqualTo: 'follow')
+          .where('actorId', isEqualTo: currentUserId)
+          .where('recipientId', isEqualTo: targetUserId)
+          .limit(1)
+          .get();
+      if (notificationQuery.docs.isNotEmpty) {
+        writeBatch.delete(notificationQuery.docs.first.reference);
+      }
+
     } else {
       // --- Follow logic ---
-      writeBatch.update(currentUserDocRef, {
-        'following': FieldValue.arrayUnion([targetUserId])
-      });
-      writeBatch.update(targetUserDocRef, {
-        'followers': FieldValue.arrayUnion([currentUserId])
+      writeBatch.update(currentUserDocRef, {'following': FieldValue.arrayUnion([targetUserId])});
+      writeBatch.update(targetUserDocRef, {'followers': FieldValue.arrayUnion([currentUserId])});
+
+      // Create a follow notification
+      final newNotificationRef = notificationRef.doc('${currentUserId}_${targetUserId}_follow');
+      writeBatch.set(newNotificationRef, {
+        'type': 'follow',
+        'actorId': currentUserId,
+        'recipientId': targetUserId,
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
       });
     }
 

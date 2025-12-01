@@ -19,7 +19,6 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
   final FocusNode _commentFocusNode = FocusNode();
   final currentUser = FirebaseAuth.instance.currentUser;
 
-  // State for replying/editing
   String? _editingCommentId;
   String? _replyToCommentId;
   String? _replyToDisplayName;
@@ -62,23 +61,18 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
     _commentFocusNode.unfocus();
     _commentController.clear();
 
+    final articleRef = FirebaseFirestore.instance.collection('articles').doc(widget.articleId);
+    final commentsRef = articleRef.collection('comments');
+    final notificationsRef = FirebaseFirestore.instance.collection('notifications');
+
     try {
       if (_editingCommentId != null) {
-        await FirebaseFirestore.instance
-            .collection('articles')
-            .doc(widget.articleId)
-            .collection('comments')
-            .doc(_editingCommentId)
-            .update({'text': commentText, 'isEdited': true});
+        await commentsRef.doc(_editingCommentId).update({'text': commentText, 'isEdited': true});
       } else {
         final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).get();
         final userData = userDoc.data() ?? {};
 
-        await FirebaseFirestore.instance
-            .collection('articles')
-            .doc(widget.articleId)
-            .collection('comments')
-            .add({
+        final newCommentRef = await commentsRef.add({
           'text': commentText,
           'userId': currentUser!.uid,
           'displayName': userData['displayName'] ?? 'Anonymous',
@@ -88,27 +82,24 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
           'isEdited': false,
         });
 
-        // Increment comment count only for new comments
-        await FirebaseFirestore.instance
-            .collection('articles')
-            .doc(widget.articleId)
-            .update({'commentCount': FieldValue.increment(1)});
-        
-        // Notify post author
-        final articleDoc = await FirebaseFirestore.instance.collection('articles').doc(widget.articleId).get();
+        final articleDoc = await articleRef.get();
         final postAuthorId = articleDoc.data()?['authorId'];
 
         if (postAuthorId != null && postAuthorId != currentUser!.uid) {
-           FirebaseFirestore.instance.collection('notifications').add({
-            'type': _replyToCommentId == null ? 'comment' : 'reply',
+          final String type = _replyToCommentId == null ? 'comment' : 'reply';
+          final notificationId = '${currentUser!.uid}_${newCommentRef.id}_$type';
+          await notificationsRef.doc(notificationId).set({
+            'type': type,
             'recipientId': postAuthorId,
             'actorId': currentUser!.uid,
             'postId': widget.articleId,
-            'commentId': (_replyToCommentId ?? ''),
+            'commentId': newCommentRef.id,
             'timestamp': FieldValue.serverTimestamp(),
             'isRead': false,
           });
         }
+
+        await articleRef.update({'commentCount': FieldValue.increment(1)});
       }
     } catch (e) {
       if (mounted) {
@@ -177,18 +168,23 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
   }
 
   Future<void> _deleteComment(String commentId) async {
-    try {
-      await FirebaseFirestore.instance
-        .collection('articles')
-        .doc(widget.articleId)
-        .collection('comments')
-        .doc(commentId)
-        .delete();
+    final articleRef = FirebaseFirestore.instance.collection('articles').doc(widget.articleId);
+    final commentRef = articleRef.collection('comments').doc(commentId);
+    final notificationsRef = FirebaseFirestore.instance.collection('notifications');
 
-      await FirebaseFirestore.instance
-          .collection('articles')
-          .doc(widget.articleId)
-          .update({'commentCount': FieldValue.increment(-1)});
+    try {
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        transaction.delete(commentRef);
+        transaction.update(articleRef, {'commentCount': FieldValue.increment(-1)});
+        
+        final notificationQuery = await notificationsRef
+            .where('commentId', isEqualTo: commentId)
+            .get();
+
+        for (var doc in notificationQuery.docs) {
+          transaction.delete(doc.reference);
+        }
+      });
     } catch (e) {
        if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -244,7 +240,6 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                       return const Center(child: Text('Chưa có bình luận nào.'));
                     }
 
-                    // Process comments into a threaded structure
                     final comments = snapshot.data!.docs;
                     final Map<String, List<DocumentSnapshot>> replies = {};
                     final List<DocumentSnapshot> topLevelComments = [];
@@ -407,7 +402,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                 child: TextField(
                   controller: _commentController,
                   focusNode: _commentFocusNode,
-                  autofocus: false, // Prevents keyboard from popping up immediately
+                  autofocus: false, 
                   decoration: InputDecoration(
                     hintText: hintText,
                     border: InputBorder.none,

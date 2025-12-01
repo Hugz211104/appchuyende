@@ -81,10 +81,49 @@ class _HomeFeedState extends State<HomeFeed> {
           icon: const Icon(CupertinoIcons.search),
           onPressed: () => setState(() => _isSearching = true),
         ),
-        IconButton(
-          icon: const Icon(CupertinoIcons.chat_bubble),
-          onPressed: _navigateToChatList,
-          tooltip: 'Tin nhắn',
+        StreamBuilder<QuerySnapshot>(
+          stream: _currentUser != null ? FirebaseFirestore.instance
+              .collection('chat_rooms')
+              .where('members', arrayContains: _currentUser!.uid)
+              .snapshots() : null,
+          builder: (context, snapshot) {
+            bool hasUnreadMessages = false;
+            if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+              for (var doc in snapshot.data!.docs) {
+                final data = doc.data() as Map<String, dynamic>;
+                final unreadCountMap = data['unreadCount'] as Map<String, dynamic>? ?? {};
+                final count = unreadCountMap[_currentUser!.uid] as int? ?? 0;
+                if (count > 0) {
+                  hasUnreadMessages = true;
+                  break; 
+                }
+              }
+            }
+
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(CupertinoIcons.chat_bubble),
+                  onPressed: _navigateToChatList,
+                  tooltip: 'Tin nhắn',
+                ),
+                if (hasUnreadMessages)
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: Colors.redAccent,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
         const SizedBox(width: AppDimens.space8),
       ],
@@ -204,7 +243,6 @@ class _HomeFeedState extends State<HomeFeed> {
     final handle = data?['handle'] as String? ?? 'unknown_handle';
     final photoURL = data?['photoURL'] as String?;
 
-    // Do not show the follow button for the current user
     if (userId == _currentUser?.uid) {
       return const SizedBox.shrink();
     }

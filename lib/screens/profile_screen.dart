@@ -79,12 +79,36 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     });
   }
 
-  void _navigateToChat() {
+  String _getChatRoomId(String userId1, String userId2) {
+    return userId1.hashCode <= userId2.hashCode
+        ? '${userId1}_$userId2'
+        : '${userId2}_$userId1';
+  }
+
+  void _navigateToChat() async {
+    if(_currentUser == null || _userData == null) return;
+
+    final chatRoomId = _getChatRoomId(_currentUser!.uid, _targetUserId);
+    final currentUserDoc = await FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).get();
+    
+    final memberInfo = {
+      _currentUser!.uid: {
+        'displayName': currentUserDoc.data()?['displayName'] ?? 'N/A',
+        'photoURL': currentUserDoc.data()?['photoURL'] ?? '',
+      },
+      _targetUserId: {
+        'displayName': _userData?['displayName'] ?? 'N/A',
+        'photoURL': _userData?['photoURL'] ?? '',
+      }
+    };
+
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => ChatScreen(
-        recipientId: _targetUserId,
-        recipientName: _userData?['displayName'] ?? 'Không có tên',
-        recipientAvatarUrl: _userData?['photoURL'] as String?,
+        chatRoomId: chatRoomId,
+        chatName: _userData?['displayName'] ?? 'Không có tên',
+        chatAvatarUrl: _userData?['photoURL'] as String?,
+        isGroup: false,
+        memberInfo: memberInfo,
       ),
     ));
   }

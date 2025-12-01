@@ -1,3 +1,4 @@
+import 'package:chuyende/screens/chat_list_screen.dart';
 import 'package:chuyende/screens/create_post_screen.dart';
 import 'package:chuyende/services/auth_service.dart';
 import 'package:chuyende/utils/app_colors.dart';
@@ -5,6 +6,7 @@ import 'package:chuyende/screens/friends_screen.dart';
 import 'package:chuyende/screens/profile_screen.dart';
 import 'package:chuyende/screens/home_feed.dart';
 import 'package:chuyende/screens/notification_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -22,8 +24,8 @@ class _HomeScreenState extends State<HomeScreen> {
   late int _selectedIndex;
   late PageController _pageController;
 
-  // This list will now be generated dynamically.
   late List<Widget> _widgetOptions;
+  final _currentUser = FirebaseAuth.instance.currentUser;
 
   @override
   void initState() {
@@ -35,20 +37,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Rebuild the widget list whenever dependencies (like the user) change.
     _buildWidgetOptions();
   }
 
   void _buildWidgetOptions() {
-    // Get the current user's UID from AuthService/Provider for reliability.
     final user = Provider.of<AuthService>(context).user;
     final userId = user?.uid;
 
-    // We must have a user to build the profile screen.
-    // The AuthWrapper should prevent this screen from being shown without a user,
-    // but this is a safe fallback.
     if (userId == null) {
-      // You could show a loading indicator or an error page here if necessary.
       _widgetOptions = [
         const HomeFeed(),
         const FriendsScreen(),
@@ -64,9 +60,6 @@ class _HomeScreenState extends State<HomeScreen> {
       const FriendsScreen(),
       const Scaffold(), // Placeholder for FAB
       const NotificationScreen(),
-      // By using a ValueKey with the user's unique ID, we tell Flutter that
-      // this is a completely new widget when the user changes.
-      // This forces Flutter to destroy the old State and create a new one.
       ProfileScreen(key: ValueKey(userId), userId: userId),
     ];
   }
@@ -82,8 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
       });
   }
 
-  void _navigateToCreatePost() {
-    Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CreatePostScreen()));
+  void _navigateToChatList() {
+    Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ChatListScreen()));
   }
   
   @override
@@ -94,7 +87,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Ensure the options are built before rendering
     _buildWidgetOptions();
     
     return Scaffold(
@@ -105,10 +97,11 @@ class _HomeScreenState extends State<HomeScreen> {
         physics: const ClampingScrollPhysics(),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _navigateToCreatePost,
+        onPressed: _navigateToChatList,
         elevation: 2.0,
         backgroundColor: AppColors.primary,
-        child: const Icon(CupertinoIcons.add, color: Colors.white),
+        child: const Icon(CupertinoIcons.chat_bubble_fill, color: Colors.white),
+        tooltip: 'Tin nhắn',
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
@@ -120,11 +113,45 @@ class _HomeScreenState extends State<HomeScreen> {
             _buildNavItem(CupertinoIcons.house, CupertinoIcons.house_fill, 0, 'Trang chủ'),
             _buildNavItem(CupertinoIcons.person_2, CupertinoIcons.person_2_fill, 1, 'Danh bạ'),
             const SizedBox(width: 40), // The space for the FAB
-            _buildNavItem(CupertinoIcons.bell, CupertinoIcons.bell_fill, 3, 'Thông báo'),
+            _buildNotificationNavItem(),
             _buildNavItem(CupertinoIcons.person, CupertinoIcons.person_fill, 4, 'Hồ sơ'),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildNotificationNavItem() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _currentUser != null ? FirebaseFirestore.instance
+          .collection('notifications')
+          .where('recipientId', isEqualTo: _currentUser!.uid)
+          .where('isRead', isEqualTo: false)
+          .limit(1) // We only need to know if at least one exists
+          .snapshots() : null,
+      builder: (context, snapshot) {
+        final bool hasUnread = snapshot.hasData && snapshot.data!.docs.isNotEmpty;
+        
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            _buildNavItem(CupertinoIcons.bell, CupertinoIcons.bell_fill, 3, 'Thông báo'),
+            if (hasUnread)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Colors.redAccent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 

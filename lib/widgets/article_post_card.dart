@@ -11,13 +11,11 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
-/// A self-contained widget to display text that can be expanded or collapsed.
-/// This version uses a character count limit for stability and reliability.
 class ExpandablePostContent extends StatefulWidget {
   final String text;
   final int maxLines;
   final TextStyle style;
-  final int characterLimit; // Show "Xem thêm" if text is longer than this
+  final int characterLimit;
 
   const ExpandablePostContent({
     Key? key,
@@ -33,25 +31,21 @@ class ExpandablePostContent extends StatefulWidget {
 
 class _ExpandablePostContentState extends State<ExpandablePostContent> {
   bool _isExpanded = false;
-  late final bool _isLongText;
+  late bool _isLongText;
 
   @override
   void initState() {
     super.initState();
-    // Determine if the text is long ONLY ONCE when the widget is first created.
     _isLongText = widget.text.length > widget.characterLimit;
   }
 
-  // This handles cases where the parent widget rebuilds with different text,
-  // for example, when scrolling through a list and widgets are reused.
   @override
   void didUpdateWidget(covariant ExpandablePostContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If the text content has changed, re-evaluate the length and reset the state.
     if (widget.text != oldWidget.text) {
       setState(() {
         _isLongText = widget.text.length > widget.characterLimit;
-        _isExpanded = false; // Collapse the new content by default
+        _isExpanded = false;
       });
     }
   }
@@ -65,12 +59,9 @@ class _ExpandablePostContentState extends State<ExpandablePostContent> {
         Text(
           widget.text,
           style: widget.style,
-          // If the text is not long, always show it fully (maxLines: null).
-          // Otherwise, respect the expanded/collapsed state.
           maxLines: !_isLongText ? null : (_isExpanded ? null : widget.maxLines),
           overflow: TextOverflow.ellipsis,
         ),
-        // The button's visibility is now controlled by the simple and stable `_isLongText` flag.
         if (_isLongText)
           Padding(
             padding: const EdgeInsets.only(top: AppDimens.space4),
@@ -117,30 +108,45 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
   Future<void> _toggleLike(List<String> currentLikes) async {
     if (currentUser == null || !widget.document.exists) return;
     final isCurrentlyLiked = currentLikes.contains(currentUser!.uid);
+    final postAuthorId = (widget.document.data() as Map<String, dynamic>)['authorId'];
 
-    final updateData = isCurrentlyLiked
-        ? {'likes': FieldValue.arrayRemove([currentUser!.uid])}
-        : {'likes': FieldValue.arrayUnion([currentUser!.uid])};
+    final DocumentReference postRef = widget.document.reference;
+    final CollectionReference notificationRef = FirebaseFirestore.instance.collection('notifications');
 
-    try {
-      await widget.document.reference.update(updateData);
+    if (isCurrentlyLiked) {
+      // --- Unlike logic ---
+      await postRef.update({
+        'likes': FieldValue.arrayRemove([currentUser!.uid])
+      });
+      // Delete the notification
+      final notifQuery = await notificationRef
+          .where('type', isEqualTo: 'like')
+          .where('postId', isEqualTo: widget.document.id)
+          .where('actorId', isEqualTo: currentUser!.uid)
+          .limit(1)
+          .get();
 
-      if (!isCurrentlyLiked) {
-        final postAuthorId =
-            (widget.document.data() as Map<String, dynamic>)['authorId'];
-        if (postAuthorId != currentUser!.uid) {
-          await FirebaseFirestore.instance.collection('notifications').add({
-            'type': 'like',
-            'recipientId': postAuthorId,
-            'actorId': currentUser!.uid,
-            'postId': widget.document.id,
-            'timestamp': FieldValue.serverTimestamp(),
-            'isRead': false,
-          });
-        }
+      if (notifQuery.docs.isNotEmpty) {
+        await notifQuery.docs.first.reference.delete();
       }
-    } catch (e) {
-      print("Error toggling like: $e");
+    } else {
+      // --- Like logic ---
+      await postRef.update({
+        'likes': FieldValue.arrayUnion([currentUser!.uid])
+      });
+
+      // Create notification only if not liking your own post
+      if (postAuthorId != currentUser!.uid) {
+        final notificationId = '${currentUser!.uid}_${widget.document.id}_like';
+        await notificationRef.doc(notificationId).set({
+          'type': 'like',
+          'recipientId': postAuthorId,
+          'actorId': currentUser!.uid,
+          'postId': widget.document.id,
+          'timestamp': FieldValue.serverTimestamp(),
+          'isRead': false,
+        });
+      }
     }
   }
 

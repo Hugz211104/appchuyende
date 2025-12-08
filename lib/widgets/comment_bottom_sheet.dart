@@ -22,10 +22,12 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
   String? _editingCommentId;
   String? _replyToCommentId;
   String? _replyToDisplayName;
+  String? _postAuthorId;
 
   @override
   void initState() {
     super.initState();
+    _loadPostAuthor();
     _syncCommentCount();
   }
 
@@ -34,6 +36,19 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
     _commentController.dispose();
     _commentFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadPostAuthor() async {
+    try {
+      final articleDoc = await FirebaseFirestore.instance.collection('articles').doc(widget.articleId).get();
+      if (mounted && articleDoc.exists) {
+        setState(() {
+          _postAuthorId = articleDoc.data()?['authorId'];
+        });
+      }
+    } catch (e) {
+      print("Error loading post author: $e");
+    }
   }
 
   Future<void> _syncCommentCount() async {
@@ -82,15 +97,12 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
           'isEdited': false,
         });
 
-        final articleDoc = await articleRef.get();
-        final postAuthorId = articleDoc.data()?['authorId'];
-
-        if (postAuthorId != null && postAuthorId != currentUser!.uid) {
+        if (_postAuthorId != null && _postAuthorId != currentUser!.uid) {
           final String type = _replyToCommentId == null ? 'comment' : 'reply';
           final notificationId = '${currentUser!.uid}_${newCommentRef.id}_$type';
           await notificationsRef.doc(notificationId).set({
             'type': type,
-            'recipientId': postAuthorId,
+            'recipientId': _postAuthorId,
             'actorId': currentUser!.uid,
             'postId': widget.articleId,
             'commentId': newCommentRef.id,
@@ -293,8 +305,9 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
 
   Widget _buildCommentItem(DocumentSnapshot comment, {bool isReply = false}) {
     final data = comment.data() as Map<String, dynamic>;
-    final userId = data['userId'];
-    final isOwner = currentUser?.uid == userId;
+    final commentOwnerId = data['userId'];
+    final isCommentOwner = currentUser?.uid == commentOwnerId;
+    final isPostOwner = currentUser?.uid == _postAuthorId;
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -305,7 +318,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           GestureDetector(
-            onTap: () => _navigateToProfile(userId),
+            onTap: () => _navigateToProfile(commentOwnerId),
             child: CircleAvatar(
               radius: isReply ? 16 : 20,
               backgroundImage: (data['photoURL'] != null && data['photoURL'].isNotEmpty)
@@ -338,18 +351,20 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                       onTap: () => _startReply(comment.id, data['displayName']),
                       child: const Text('Trả lời', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
                     ),
-                    if (isOwner) ...[
+                    if (isCommentOwner) ...[
                       const SizedBox(width: 12),
                       GestureDetector(
                         onTap: () => _startEdit(comment.id, data['text']),
                         child: const Text('Sửa', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
-                      const SizedBox(width: 12),
-                      GestureDetector(
+                    ],
+                    if (isCommentOwner || (isPostOwner && !isCommentOwner)) ...[
+                       const SizedBox(width: 12),
+                       GestureDetector(
                         onTap: () => _showDeleteConfirmationDialog(comment.id),
                         child: const Text('Xóa', style: TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
-                    ],
+                    ]
                   ],
                 ),
               ],
@@ -402,7 +417,7 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                 child: TextField(
                   controller: _commentController,
                   focusNode: _commentFocusNode,
-                  autofocus: false, 
+                  autofocus: false,
                   decoration: InputDecoration(
                     hintText: hintText,
                     border: InputBorder.none,

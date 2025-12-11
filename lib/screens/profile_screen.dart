@@ -1,16 +1,16 @@
 import 'dart:ui';
 import 'package:chuyende/screens/chat_screen.dart';
 import 'package:chuyende/screens/edit_profile_screen.dart';
+import 'package:chuyende/screens/follow_list_screen.dart';
+import 'package:chuyende/screens/settings_screen.dart';
 import 'package:chuyende/services/auth_service.dart';
-import 'package:chuyende/utils/app_colors.dart';
 import 'package:chuyende/utils/app_styles.dart';
 import 'package:chuyende/utils/dimens.dart';
 import 'package:chuyende/widgets/article_post_card.dart';
-import 'package:chuyende/widgets/custom_dialog.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -113,28 +113,12 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     ));
   }
 
-  Future<void> _logout() async {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    try {
-      await authService.signOut();
-    } catch (e) {
-      if (mounted) CustomDialog.show(context, title: 'Đăng xuất thất bại', description: 'Đã xảy ra lỗi: $e', dialogType: DialogType.ERROR);
-    }
-  }
-
-  void _showLogoutConfirmationDialog() {
-    showDialog(context: context, builder: (BuildContext dialogContext) => AlertDialog(
-      title: const Text('Đăng xuất'),
-      content: const Text('Bạn muốn đăng xuất không?'),
-      actions: <Widget>[
-        TextButton(child: const Text('Hủy'), onPressed: () => Navigator.of(dialogContext).pop()),
-        TextButton(child: const Text('Đăng xuất'), onPressed: () {
-            Navigator.of(dialogContext).pop();
-            _logout();
-        }),
-      ],
+  void _navigateToFollowList(FollowListType listType) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => FollowListScreen(userId: _targetUserId, listType: listType),
     ));
   }
+
   
   @override
   void dispose() {
@@ -145,24 +129,27 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.background,
       body: _isLoading ? _buildShimmerLoading() : _buildProfileView(),
     );
   }
 
   Widget _buildProfileView() {
+    final theme = Theme.of(context);
     return NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) {
         return [
           SliverAppBar(
-            backgroundColor: AppColors.surface,
+            backgroundColor: theme.colorScheme.surface,
             elevation: 0.5,
             pinned: true,
             floating: true,
-            leading: _isCurrentUserProfile ? null : BackButton(color: AppColors.textPrimary),
+            leading: _isCurrentUserProfile ? null : BackButton(color: theme.colorScheme.onSurface),
             actions: [
               if (_isCurrentUserProfile)
-                IconButton(icon: const Icon(CupertinoIcons.square_arrow_right), onPressed: _showLogoutConfirmationDialog, tooltip: 'Đăng xuất'),
+                IconButton(icon: const Icon(Icons.settings), onPressed: () {
+                   Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SettingsScreen()));
+                }, tooltip: 'Cài đặt'),
             ],
           ),
           SliverToBoxAdapter(
@@ -172,6 +159,8 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             delegate: _SliverAppBarDelegate(
               TabBar(
                 controller: _tabController,
+                labelColor: theme.colorScheme.primary,
+                unselectedLabelColor: theme.colorScheme.onSurface.withOpacity(0.6),
                 tabs: const [Tab(text: 'Bài viết'), Tab(text: 'Bạn bè')],
               ),
             ),
@@ -190,6 +179,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
   }
 
   Widget _buildHeader() {
+    final theme = Theme.of(context);
     final String? coverPhotoUrl = _userData?['coverPhotoUrl'];
     final String? photoURL = _userData?['photoURL'];
     final String displayName = _userData?['displayName'] ?? 'Không có tên';
@@ -197,7 +187,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     final String bio = _userData?['bio'] ?? 'Chưa có tiểu sử.';
 
     return Container(
-      color: AppColors.surface,
+      color: theme.colorScheme.surface,
       padding: const EdgeInsets.only(bottom: AppDimens.space12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,21 +199,21 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
               children: [
                 Positioned.fill(
                   child: coverPhotoUrl != null && coverPhotoUrl.isNotEmpty
-                      ? Image.network(coverPhotoUrl, fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: AppColors.divider))
-                      : Container(color: AppColors.primary.withOpacity(0.1)),
+                      ? Image.network(coverPhotoUrl, fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: theme.dividerColor))
+                      : Container(color: theme.colorScheme.primary.withOpacity(0.1)),
                 ),
                 Positioned(
                   bottom: -40,
                   left: AppDimens.space16,
                   child: CircleAvatar(
                     radius: 44,
-                    backgroundColor: AppColors.surface,
+                    backgroundColor: theme.colorScheme.surface,
                     child: CircleAvatar(
                       radius: 40,
                       backgroundImage: (photoURL != null && photoURL.isNotEmpty) ? NetworkImage(photoURL) : null,
-                      backgroundColor: AppColors.divider,
+                      backgroundColor: theme.dividerColor,
                        child: (photoURL == null || photoURL.isEmpty)
-                          ? Text(displayName.isNotEmpty ? displayName[0].toUpperCase() : '?', style: AppStyles.headline.copyWith(color: AppColors.primary, fontSize: 40))
+                          ? Text(displayName.isNotEmpty ? displayName[0].toUpperCase() : '?', style: AppStyles.headline.copyWith(color: theme.colorScheme.primary, fontSize: 40))
                           : null,
                     ),
                   ),
@@ -249,11 +239,11 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(displayName, style: AppStyles.headline.copyWith(fontSize: 22)),
+                Text(displayName, style: AppStyles.headline.copyWith(fontSize: 22, color: theme.colorScheme.onSurface)),
                 const SizedBox(height: AppDimens.space4),
-                Text(handle, style: AppStyles.timestamp.copyWith(fontSize: 15)),
+                Text(handle, style: AppStyles.timestamp.copyWith(fontSize: 15, color: theme.colorScheme.onSurface.withOpacity(0.6))),
                 const SizedBox(height: AppDimens.space12),
-                if (bio.isNotEmpty) Text(bio, style: AppStyles.postContent),
+                if (bio.isNotEmpty) Text(bio, style: AppStyles.postContent.copyWith(color: theme.colorScheme.onSurface)),
                 const SizedBox(height: AppDimens.space16),
                 _buildStatsRow(),
               ],
@@ -266,6 +256,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
 
   Widget _buildFollowMessageButtons() {
     final authService = Provider.of<AuthService>(context, listen: false);
+    final theme = Theme.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -282,9 +273,9 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             final isFollowing = snapshot.data ?? false;
             return ElevatedButton(
               onPressed: () => authService.toggleFollow(context, _targetUserId),
-              style: Theme.of(context).elevatedButtonTheme.style?.copyWith(
+              style: theme.elevatedButtonTheme.style?.copyWith(
                     padding: MaterialStateProperty.all(const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
-                    backgroundColor: MaterialStateProperty.all(isFollowing ? Colors.grey.shade300 : AppColors.primary),
+                    backgroundColor: MaterialStateProperty.all(isFollowing ? Colors.grey.shade300 : theme.colorScheme.primary),
                     foregroundColor: MaterialStateProperty.all(isFollowing ? Colors.black : Colors.white),
                   ),
               child: Text(isFollowing ? 'Đang theo dõi' : 'Theo dõi'),
@@ -294,7 +285,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
         const SizedBox(width: 8.0),
         OutlinedButton(
             onPressed: _navigateToChat,
-            style: Theme.of(context).outlinedButtonTheme.style?.copyWith(
+            style: theme.outlinedButtonTheme.style?.copyWith(
                   padding: MaterialStateProperty.all(const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
                 ),
             child: const Text('Nhắn')),
@@ -309,20 +300,26 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     
     return Row(
       children: [
-        _buildStatText(postCount.toString(), 'Bài viết'),
+        _buildStatText(postCount.toString(), 'Bài viết', onTap: () {}), // No action for posts
         const SizedBox(width: AppDimens.space16),
-        _buildStatText(following.toString(), 'Đang theo dõi'),
+        _buildStatText(following.toString(), 'Đang theo dõi', onTap: () => _navigateToFollowList(FollowListType.following)),
         const SizedBox(width: AppDimens.space16),
-        _buildStatText(followers.toString(), 'Người theo dõi'),
+        _buildStatText(followers.toString(), 'Người theo dõi', onTap: () => _navigateToFollowList(FollowListType.followers)),
       ],
     );
   }
 
-  Widget _buildStatText(String value, String label) {
-    return RichText(text: TextSpan(style: Theme.of(context).textTheme.bodyMedium, children: [
-      TextSpan(text: value, style: AppStyles.username.copyWith(fontWeight: FontWeight.bold, fontSize: 15)),
-      TextSpan(text: ' $label', style: AppStyles.timestamp.copyWith(fontSize: 15)),
-    ]));
+  Widget _buildStatText(String value, String label, {VoidCallback? onTap}) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: RichText(text: TextSpan(
+        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.6)), 
+        children: [
+          TextSpan(text: value, style: AppStyles.username.copyWith(fontWeight: FontWeight.bold, fontSize: 15, color: theme.colorScheme.onSurface)),
+          TextSpan(text: ' $label'),
+      ])),
+    );
   }
   
   Widget _buildPostList() {
@@ -335,6 +332,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
   }
 
   Widget _buildFriendsList() {
+    final theme = Theme.of(context);
     if (_friends.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(AppDimens.space24), child: Text('Chưa có bạn bè nào.')));
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: AppDimens.space8),
@@ -346,11 +344,11 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
         return ListTile(
           leading: CircleAvatar(
             backgroundImage: (photoURL != null && photoURL.isNotEmpty) ? NetworkImage(photoURL) : null,
-            backgroundColor: AppColors.primary.withOpacity(0.1),
-            child: (photoURL == null || photoURL.isEmpty) ? Text(displayName[0].toUpperCase(), style: AppStyles.username.copyWith(color: AppColors.primary)) : null,
+            backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+            child: (photoURL == null || photoURL.isEmpty) ? Text(displayName[0].toUpperCase(), style: AppStyles.username.copyWith(color: theme.colorScheme.primary)) : null,
           ),
-          title: Text(displayName, style: AppStyles.username),
-          subtitle: Text('@${friendData['handle'] ?? 'no_handle'}', style: AppStyles.timestamp),
+          title: Text(displayName, style: AppStyles.username.copyWith(color: theme.colorScheme.onSurface)),
+          subtitle: Text('@${friendData['handle'] ?? 'no_handle'}', style: AppStyles.timestamp.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.6))),
           onTap: () => _navigateToProfile(_friends[index].id),
         );
       },
@@ -433,7 +431,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _tabBar.preferredSize.height;
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(color: AppColors.surface, child: _tabBar);
+    return Container(color: Theme.of(context).colorScheme.surface, child: _tabBar);
   }
   @override
   bool shouldRebuild(_SliverAppBarDelegate oldDelegate) => false;

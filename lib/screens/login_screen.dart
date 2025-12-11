@@ -2,6 +2,7 @@ import 'package:chuyende/services/auth_service.dart';
 import 'package:chuyende/utils/app_colors.dart';
 import 'package:chuyende/utils/dimens.dart';
 import 'package:chuyende/widgets/custom_dialog.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -43,6 +44,21 @@ class _LoginScreenState extends State<LoginScreen> {
         description: "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.",
         dialogType: DialogType.ERROR,
       );
+    }
+  }
+
+  Future<void> _resetPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      CustomDialog.show(context, title: 'Lỗi', description: 'Vui lòng nhập email của bạn.', dialogType: DialogType.ERROR);
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      CustomDialog.show(context, title: 'Thành công', description: 'Link đặt lại mật khẩu đã được gửi đến email của bạn.', dialogType: DialogType.SUCCESS);
+    } on FirebaseAuthException catch (e) {
+      CustomDialog.show(context, title: 'Lỗi', description: e.message ?? 'Đã có lỗi xảy ra.', dialogType: DialogType.ERROR);
     }
   }
 
@@ -107,7 +123,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: AppDimens.space32),
+                  const SizedBox(height: AppDimens.space8),
+                   Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _resetPassword,
+                      child: const Text('Quên mật khẩu?'),
+                    ),
+                  ),
+                  const SizedBox(height: AppDimens.space24),
 
                   _isLoading
                       ? const Center(child: CircularProgressIndicator())

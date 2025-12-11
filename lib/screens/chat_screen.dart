@@ -33,6 +33,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _currentUser = FirebaseAuth.instance.currentUser;
   final FocusNode _messageFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
+  StreamSubscription? _messagesSubscription;
 
   String? _editingMessageId;
 
@@ -40,18 +41,34 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     initializeDateFormatting('vi_VN', null);
-    _markMessagesAsRead();
+    if (_currentUser != null) {
+      _listenAndMarkMessagesAsRead();
+    }
   }
 
-  Future<void> _markMessagesAsRead() async {
-    if (_currentUser != null) {
-      final chatRoomRef = FirebaseFirestore.instance.collection('chat_rooms').doc(widget.chatRoomId);
-      await chatRoomRef.set({
-        'unreadCount': {
-          _currentUser!.uid: 0
+  void _listenAndMarkMessagesAsRead() {
+    _messagesSubscription = FirebaseFirestore.instance
+        .collection('chat_rooms')
+        .doc(widget.chatRoomId)
+        .collection('messages')
+        .snapshots()
+        .listen((snapshot) {
+      final batch = FirebaseFirestore.instance.batch();
+      final unreadMessages = snapshot.docs.where((doc) {
+        final data = doc.data();
+        final readBy = data['readBy'] as List<dynamic>? ?? [];
+        return data['senderId'] != _currentUser!.uid && !readBy.contains(_currentUser!.uid);
+      });
+
+      if (unreadMessages.isNotEmpty) {
+        for (final doc in unreadMessages) {
+          batch.update(doc.reference, {
+            'readBy': FieldValue.arrayUnion([_currentUser!.uid])
+          });
         }
-      }, SetOptions(merge: true));
-    }
+        batch.commit();
+      }
+    });
   }
 
   void _navigateToRecipientProfile() {
@@ -99,8 +116,9 @@ class _ChatScreenState extends State<ChatScreen> {
           'senderId': _currentUser!.uid,
           'timestamp': now,
           'isEdited': false,
-          'isRevoked': false, // Add isRevoked field
+          'isRevoked': false, 
           'reactions': {},
+          'readBy': [_currentUser!.uid],
         };
 
         await FirebaseFirestore.instance.runTransaction((transaction) async {
@@ -187,18 +205,24 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!messageSnapshot.exists) return;
 
       final reactions = Map<String, List<dynamic>>.from((messageSnapshot.data() as Map<String, dynamic>)['reactions'] ?? {});
-      
-      if (reactions[emoji]?.contains(_currentUser!.uid) ?? false) {
-        reactions[emoji]!.remove(_currentUser!.uid);
-        if (reactions[emoji]!.isEmpty) {
-          reactions.remove(emoji);
+      String? previousReaction;
+      reactions.forEach((key, userIds) {
+        if (userIds.contains(_currentUser!.uid)) {
+          previousReaction = key;
         }
-      } else {
-        reactions.forEach((key, userIds) => userIds.remove(_currentUser!.uid));
-        reactions[emoji] = (reactions[emoji] ?? [])..add(_currentUser!.uid);
+      });
+
+      if (previousReaction != null) {
+        reactions[previousReaction]!.remove(_currentUser!.uid);
+        if (reactions[previousReaction]!.isEmpty) {
+          reactions.remove(previousReaction);
+        }
       }
 
-      reactions.removeWhere((key, value) => value.isEmpty);
+      if (previousReaction != emoji) {
+        reactions.putIfAbsent(emoji, () => []).add(_currentUser!.uid);
+      }
+
       transaction.update(messageRef, {'reactions': reactions});
     });
   }
@@ -208,6 +232,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.dispose();
     _messageFocusNode.dispose();
     _scrollController.dispose();
+    _messagesSubscription?.cancel();
     super.dispose();
   }
 
@@ -463,6 +488,11 @@ class _ChatScreenState extends State<ChatScreen> {
     final timestamp = message['timestamp'] as Timestamp?;
     final bool isEdited = message['isEdited'] ?? false;
     final reactions = Map<String, List<dynamic>>.from(message['reactions'] ?? {});
+    
+    final List<dynamic> readBy = message['readBy'] ?? [];
+    final allMemberIds = widget.memberInfo.keys;
+    final otherMemberIds = allMemberIds.where((id) => id != senderId);
+    final bool isReadByAllOthers = otherMemberIds.every((memberId) => readBy.contains(memberId));
 
     final messageContent = Column(
       crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -506,7 +536,15 @@ class _ChatScreenState extends State<ChatScreen> {
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary, fontSize: 11),
             ),
           ],
-        )
+        ),
+        if (isMe && isReadByAllOthers)
+          Padding(
+            padding: const EdgeInsets.only(top: 2.0, right: 4.0),
+            child: Text(
+              'Đã xem',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary, fontSize: 11),
+            ),
+          ),
       ],
     );
 
@@ -567,7 +605,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildMessageActions(DocumentSnapshot messageDoc, bool isMe) {
     final messageData = messageDoc.data() as Map<String, dynamic>;
     final bool isRevoked = messageData['isRevoked'] ?? false;
-    if (isRevoked) return const SizedBox.shrink(); // No actions for revoked messages
+    if (isRevoked) return const SizedBox.shrink();
 
     final List<String> reactions = ['❤️', '👍', '😂', '😮', '😢', '😠'];
 

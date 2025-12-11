@@ -1,4 +1,3 @@
-import 'package:chuyende/utils/app_colors.dart';
 import 'package:chuyende/utils/app_styles.dart';
 import 'package:chuyende/utils/dimens.dart';
 import 'package:chuyende/screens/create_post_screen.dart';
@@ -74,7 +73,7 @@ class _ExpandablePostContentState extends State<ExpandablePostContent> {
               child: Text(
                 _isExpanded ? 'Thu gọn' : 'Xem thêm',
                 style: AppStyles.timestamp.copyWith(
-                  color: AppColors.primary,
+                  color: Theme.of(context).colorScheme.primary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -105,49 +104,58 @@ class ArticlePostCard extends StatefulWidget {
 class _ArticlePostCardState extends State<ArticlePostCard> {
   final currentUser = FirebaseAuth.instance.currentUser;
 
-  Future<void> _toggleLike(List<String> currentLikes) async {
+  Future<void> _handleReaction(String emoji) async {
     if (currentUser == null || !widget.document.exists) return;
-    final isCurrentlyLiked = currentLikes.contains(currentUser!.uid);
-    final postAuthorId = (widget.document.data() as Map<String, dynamic>)['authorId'];
 
     final DocumentReference postRef = widget.document.reference;
-    final CollectionReference notificationRef = FirebaseFirestore.instance.collection('notifications');
+    final String currentUserId = currentUser!.uid;
+    final notificationId = '${currentUserId}_${widget.document.id}_reaction';
+    final notificationRef = FirebaseFirestore.instance.collection('notifications').doc(notificationId);
 
-    if (isCurrentlyLiked) {
-      // --- Unlike logic ---
-      await postRef.update({
-        'likes': FieldValue.arrayRemove([currentUser!.uid])
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final freshSnap = await transaction.get(postRef);
+      if (!freshSnap.exists) return;
+
+      final data = freshSnap.data() as Map<String, dynamic>;
+      final postAuthorId = data['authorId'];
+      Map<String, List<dynamic>> reactions = Map<String, List<dynamic>>.from(data['reactions'] ?? {});
+
+      String? previousReaction;
+      reactions.forEach((key, userIds) {
+        if (userIds.contains(currentUserId)) {
+          previousReaction = key;
+        }
       });
-      // Delete the notification
-      final notifQuery = await notificationRef
-          .where('type', isEqualTo: 'like')
-          .where('postId', isEqualTo: widget.document.id)
-          .where('actorId', isEqualTo: currentUser!.uid)
-          .limit(1)
-          .get();
 
-      if (notifQuery.docs.isNotEmpty) {
-        await notifQuery.docs.first.reference.delete();
+      if (previousReaction != null) {
+        reactions[previousReaction]!.remove(currentUserId);
+        if (reactions[previousReaction]!.isEmpty) {
+          reactions.remove(previousReaction);
+        }
       }
-    } else {
-      // --- Like logic ---
-      await postRef.update({
-        'likes': FieldValue.arrayUnion([currentUser!.uid])
-      });
 
-      // Create notification only if not liking your own post
-      if (postAuthorId != currentUser!.uid) {
-        final notificationId = '${currentUser!.uid}_${widget.document.id}_like';
-        await notificationRef.doc(notificationId).set({
-          'type': 'like',
+      bool shouldCreateNotification = false;
+      if (previousReaction != emoji) {
+        reactions.putIfAbsent(emoji, () => []).add(currentUserId);
+        shouldCreateNotification = true;
+      }
+
+      transaction.update(postRef, {'reactions': reactions});
+
+      transaction.delete(notificationRef);
+
+      if (shouldCreateNotification && postAuthorId != currentUserId) {
+        transaction.set(notificationRef, {
+          'type': 'reaction',
           'recipientId': postAuthorId,
-          'actorId': currentUser!.uid,
+          'actorId': currentUserId,
           'postId': widget.document.id,
+          'emoji': emoji,
           'timestamp': FieldValue.serverTimestamp(),
           'isRead': false,
         });
       }
-    }
+    });
   }
 
   void _showComments() {
@@ -199,7 +207,7 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
               },
             ),
             TextButton(
-              style: TextButton.styleFrom(foregroundColor: AppColors.error),
+              style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
               child: const Text('Xóa'),
               onPressed: () {
                 Navigator.of(context).pop();
@@ -235,10 +243,6 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
     return Card(
       key: ValueKey(widget.document.id),
       margin: const EdgeInsets.only(bottom: AppDimens.space16),
-      elevation: 1,
-      shadowColor: Colors.black.withOpacity(0.05),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDimens.space12)),
       child: StreamBuilder<DocumentSnapshot>(
         stream: widget.document.reference.snapshots(),
         builder: (context, snapshot) {
@@ -320,7 +324,7 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
         if (!widget.isSharedPost) ...[
           const SizedBox(height: AppDimens.space12),
           _buildStatsRow(data),
-          const Divider(height: AppDimens.space16, color: AppColors.divider),
+          Divider(height: AppDimens.space16, color: Theme.of(context).dividerColor),
           _buildActionButtons(data),
         ]
       ],
@@ -391,7 +395,7 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
             _buildNestedOriginalPost(originalPostRef),
             const SizedBox(height: AppDimens.space8),
             _buildStatsRow(sharedData),
-            const Divider(height: AppDimens.space16, color: AppColors.divider),
+            Divider(height: AppDimens.space16, color: Theme.of(context).dividerColor),
             _buildActionButtons(sharedData),
           ],
         );
@@ -418,7 +422,7 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
           return Container(
             padding: const EdgeInsets.all(AppDimens.space12),
             decoration: BoxDecoration(
-              border: Border.all(color: AppColors.divider),
+              border: Border.all(color: Theme.of(context).dividerColor),
               borderRadius: BorderRadius.circular(AppDimens.space8),
             ),
             child: ArticlePostCard(document: originalPost, isSharedPost: true),
@@ -428,7 +432,7 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
             width: double.infinity,
             padding: const EdgeInsets.all(AppDimens.space12),
             decoration: BoxDecoration(
-              border: Border.all(color: AppColors.divider),
+              border: Border.all(color: Theme.of(context).dividerColor),
               borderRadius: BorderRadius.circular(AppDimens.space8),
             ),
             child: Text('Bài viết gốc không còn tồn tại.',
@@ -458,11 +462,11 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
                 (authorAvatarUrl != null && authorAvatarUrl.isNotEmpty)
                     ? NetworkImage(authorAvatarUrl)
                     : null,
-            backgroundColor: AppColors.primary.withOpacity(0.1),
+            backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
             child: (authorAvatarUrl == null || authorAvatarUrl.isEmpty)
                 ? Text(displayName[0].toUpperCase(),
                     style:
-                        AppStyles.username.copyWith(color: AppColors.primary))
+                        AppStyles.username.copyWith(color: Theme.of(context).colorScheme.primary))
                 : null,
           ),
         ),
@@ -479,7 +483,7 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
         ),
         if (isPostOwner && !widget.isSharedPost)
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_horiz, color: AppColors.textSecondary),
+            icon: Icon(Icons.more_horiz, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
             onSelected: (value) {
               if (value == 'edit') {
                 _editPost();
@@ -506,53 +510,123 @@ class _ArticlePostCardState extends State<ArticlePostCard> {
   }
 
   Widget _buildStatsRow(Map<String, dynamic> data) {
-    final int likeCount = (data['likes'] as List?)?.length ?? 0;
+    final Map<String, dynamic> reactions = Map<String, dynamic>.from(data['reactions'] ?? {});
+    final int reactionCount = reactions.values.fold(0, (sum, list) => sum + (list as List).length);
     final int commentCount = data['commentCount'] ?? 0;
     final int shareCount = data['shareCount'] ?? 0;
 
+    final sortedReactions = reactions.entries.toList()
+      ..sort((a, b) => (b.value as List).length.compareTo((a.value as List).length));
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppDimens.space8),
-      child: Text(
-          '$likeCount lượt thích • $commentCount bình luận • $shareCount lượt chia sẻ',
-          style: AppStyles.timestamp),
+      child: Row(
+        children: [
+          if (reactions.isNotEmpty)
+            Row(
+              children: [
+                ...sortedReactions.take(3).map((entry) => Text(entry.key, style: const TextStyle(fontSize: 14))).toList(),
+                const SizedBox(width: AppDimens.space4),
+              ],
+            ),
+          Expanded(
+            child: Text(
+                '$reactionCount cảm xúc • $commentCount bình luận • $shareCount chia sẻ',
+                style: AppStyles.timestamp,
+                overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildActionButtons(Map<String, dynamic> data) {
-    final List<String> likes = List<String>.from(data['likes'] ?? []);
-    final isLiked = currentUser != null && likes.contains(currentUser!.uid);
+    final Map<String, dynamic> reactions = Map<String, dynamic>.from(data['reactions'] ?? {});
+    String? currentUserReaction;
+    if (currentUser != null) {
+      for (var entry in reactions.entries) {
+        if ((entry.value as List).contains(currentUser!.uid)) {
+          currentUserReaction = entry.key;
+          break;
+        }
+      }
+    }
+
+    final List<String> reactionEmojis = ['❤️', '😂', '😮', '😢', '😠'];
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        _buildActionButton(
-            isLiked ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
-            'Thích',
-            () => _toggleLike(likes),
-            isLiked ? AppColors.error : AppColors.textSecondary),
-        _buildActionButton(CupertinoIcons.chat_bubble, 'Bình luận',
-            _showComments, AppColors.textSecondary),
-        _buildActionButton(CupertinoIcons.arrow_2_squarepath, 'Chia sẻ',
-            _sharePost, AppColors.textSecondary),
+        Expanded(
+          child: GestureDetector(
+            onTap: () => _handleReaction('❤️'), // Default to heart reaction
+            onLongPress: () {
+              showModalBottomSheet(
+                context: context,
+                backgroundColor: Colors.transparent,
+                builder: (context) => Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: reactionEmojis.map((emoji) => 
+                      IconButton(
+                        icon: Text(emoji, style: const TextStyle(fontSize: 26)), 
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          _handleReaction(emoji);
+                        }
+                      )
+                    ).toList(),
+                  ),
+                ),
+              );
+            },
+            child: _buildActionButton(
+                currentUserReaction,
+                currentUserReaction != null ? null : 'Thích',
+                currentUserReaction != null ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+          ),
+        ),
+        Expanded(
+          child: _buildActionButton(null, 'Bình luận', Theme.of(context).colorScheme.onSurface.withOpacity(0.6), iconData: CupertinoIcons.chat_bubble, onTap: _showComments),
+        ),
+        Expanded(
+          child: _buildActionButton(null, 'Chia sẻ', Theme.of(context).colorScheme.onSurface.withOpacity(0.6), iconData: CupertinoIcons.arrow_2_squarepath, onTap: _sharePost),
+        ),
       ],
     );
   }
 
-  Widget _buildActionButton(
-      IconData icon, String label, VoidCallback onPressed, Color color) {
+  Widget _buildActionButton(String? emoji, String? label, Color color, {IconData? iconData, VoidCallback? onTap}) {
+    Widget iconWidget;
+    if (emoji != null) {
+      iconWidget = Text(emoji, style: const TextStyle(fontSize: 22));
+    } else {
+      iconWidget = Icon(iconData ?? CupertinoIcons.heart, color: color, size: 22);
+    }
+
     return InkWell(
-      onTap: onPressed,
+      onTap: onTap,
       borderRadius: BorderRadius.circular(AppDimens.space8),
       child: Padding(
         padding: const EdgeInsets.symmetric(
             horizontal: AppDimens.space12, vertical: AppDimens.space8),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 20),
+            iconWidget,
             const SizedBox(width: AppDimens.space8),
-            Text(label,
-                style: AppStyles.interactionText
-                    .copyWith(color: color, fontWeight: FontWeight.w600)),
+            if (label != null)
+              Text(label,
+                  style: AppStyles.interactionText
+                      .copyWith(color: color, fontWeight: FontWeight.w600)),
           ],
         ),
       ),

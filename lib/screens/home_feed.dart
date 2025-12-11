@@ -2,7 +2,6 @@ import 'package:chuyende/screens/chat_list_screen.dart';
 import 'package:chuyende/screens/create_post_screen.dart';
 import 'package:chuyende/screens/profile_screen.dart';
 import 'package:chuyende/services/auth_service.dart';
-import 'package:chuyende/utils/app_colors.dart';
 import 'package:chuyende/utils/app_styles.dart';
 import 'package:chuyende/utils/dimens.dart';
 import 'package:chuyende/widgets/article_post_card.dart';
@@ -61,12 +60,13 @@ class _HomeFeedState extends State<HomeFeed> {
   }
 
   Widget _buildNormalAppBar() {
+    final theme = Theme.of(context);
     return SliverAppBar(
       title: Row(
         children: [
-          const Icon(
+          Icon(
             CupertinoIcons.news,
-            color: AppColors.primary,
+            color: theme.colorScheme.primary,
             size: 28,
           ),
           const SizedBox(width: AppDimens.space8),
@@ -130,7 +130,7 @@ class _HomeFeedState extends State<HomeFeed> {
       centerTitle: false,
       pinned: true,
       floating: true,
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.colorScheme.background,
       elevation: 0.5,
     );
   }
@@ -162,6 +162,7 @@ class _HomeFeedState extends State<HomeFeed> {
   }
 
   List<Widget> _buildHomeContent() {
+    final theme = Theme.of(context);
     final photoURL = _currentUser?.photoURL;
     final displayName = _currentUser?.displayName;
 
@@ -174,7 +175,7 @@ class _HomeFeedState extends State<HomeFeed> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: AppDimens.space16, vertical: AppDimens.space12),
               decoration: BoxDecoration(
-                  color: Theme.of(context).cardTheme.color,
+                  color: theme.cardTheme.color,
                   borderRadius: BorderRadius.circular(30.0),
                   boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), spreadRadius: 1, blurRadius: 10)]
               ),
@@ -183,20 +184,20 @@ class _HomeFeedState extends State<HomeFeed> {
                   CircleAvatar(
                     radius: 18,
                     backgroundImage: (photoURL != null && photoURL.isNotEmpty) ? NetworkImage(photoURL) : null,
-                    backgroundColor: AppColors.primary.withOpacity(0.1),
+                    backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
                     child: (photoURL == null || photoURL.isEmpty)
                         ? Text(
                             (displayName != null && displayName.isNotEmpty) ? displayName[0].toUpperCase() : 'G',
-                            style: AppStyles.username.copyWith(color: AppColors.primary, fontSize: 14)
+                            style: AppStyles.username.copyWith(color: theme.colorScheme.primary, fontSize: 14)
                           )
                         : null,
                   ),
                   const SizedBox(width: AppDimens.space12),
                   Expanded(
-                    child: Text('Chia sẻ điều bạn nghĩ...', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+                    child: Text('Chia sẻ điều bạn nghĩ...', style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.6))),
                   ),
                   const SizedBox(width: AppDimens.space12),
-                  const Icon(CupertinoIcons.photo_on_rectangle, color: AppColors.secondary)
+                  Icon(CupertinoIcons.photo_on_rectangle, color: theme.colorScheme.secondary)
                 ],
               ),
             ),
@@ -236,6 +237,7 @@ class _HomeFeedState extends State<HomeFeed> {
   }
 
   Widget _buildUserListTile(DocumentSnapshot doc) {
+    final theme = Theme.of(context);
     final authService = Provider.of<AuthService>(context, listen: false);
     final data = doc.data() as Map<String, dynamic>?;
     final userId = doc.id;
@@ -250,11 +252,11 @@ class _HomeFeedState extends State<HomeFeed> {
     return ListTile(
       leading: CircleAvatar(
         backgroundImage: (photoURL != null && photoURL.isNotEmpty) ? NetworkImage(photoURL) : null,
-        backgroundColor: AppColors.primary.withOpacity(0.1),
+        backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
         child: (photoURL == null || photoURL.isEmpty)
             ? Text(
                 (displayName.isNotEmpty) ? displayName[0].toUpperCase() : '!',
-                style: AppStyles.username.copyWith(color: AppColors.primary),
+                style: AppStyles.username.copyWith(color: theme.colorScheme.primary),
               )
             : null,
       ),
@@ -268,7 +270,7 @@ class _HomeFeedState extends State<HomeFeed> {
               ? ElevatedButton(
                   onPressed: () => authService.toggleFollow(context, userId),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: theme.colorScheme.primary,
                   ),
                   child: const Text('Đang theo dõi'),
                 )
@@ -342,10 +344,11 @@ class _HomeFeedState extends State<HomeFeed> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: _handleRefresh,
-        color: AppColors.primary,
+        color: theme.colorScheme.primary,
         child: CustomScrollView(
           slivers: <Widget>[
             _isSearching ? _buildSearchAppBar() : _buildNormalAppBar(),
